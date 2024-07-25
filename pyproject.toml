@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "frame-sdk"
+version = "0.1"
+authors = [{ name = "Roger Pincombe", email = "pip@betechie.com" },{ name = "Brilliant Labs", email = "info@brilliant.xyz" }]
+description = "Python Developer SDK for Brilliant Frame glasses"
+readme = "readme.md"
+requires-python = ">=3.7"
+license = { file = "license.md" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = ["bleak", "exif"]
+
+[project.urls]
+"Homepage" = "https://github.com/OkGoDoIt/frame-sdk-python"
+"Bug Tracker" = "https://github.com/OkGoDoIt/frame-sdk-python/issues"
