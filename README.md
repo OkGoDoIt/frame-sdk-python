@@ -1,5 +1,5 @@
-# frame-sdk-python
-The Python SDK for the Frame from @brilliantlabsAR
+# Frame SDK for Python
+The Python SDK for the Frame AI glasses from [Brilliant Labs](https://github.com/brilliantlabsAR).  View on [PyPI](https://pypi.org/project/frame-sdk/).
 
 ## Install
 
@@ -11,6 +11,12 @@ pip3 install frame-sdk
 
 Check out [the docs](https://docs.brilliant.xyz/frame/building-apps/) for complete guidance on everything you can do with the Frame.
 
+## Relationship to `frame-utilities-for-python`
+
+The [`frame-utilities-for-python`](https://github.com/brilliantlabsAR/frame-utilities-for-python) package is for low-level communication with both Frame and Monocle devices and is a thin wrapper around the bluetooth connection, plus some internal tools that are used in the firmware preparation process.  This `frame-sdk` package is a higher-level SDK that provides a more convenient way for developers to build apps for Frame.
+
+It is recommended that you use this package for new projects, unless you have a specific need to use the lower-level `frame-utilities-for-python` package.
+
 ## Examples
 
 Here's a simple example of how to use the Frame SDK to display text, take a photo, and more.
@@ -18,7 +24,8 @@ Here's a simple example of how to use the Frame SDK to display text, take a phot
 ```python
 import asyncio
 from frame_sdk import Frame
-
+from frame_sdk.display import Alignment
+import datetime
 
 async def main():
     # the with statement handles the connection and disconnection to Frame
@@ -46,9 +53,9 @@ async def main():
         print(await f.evaluate("1+2"))
 
         # take a photo and save to disk
-        await f.display.show_text("Taking photo...", 200, 150)
+        await f.display.show_text("Taking photo...", align=Alignment.MIDDLE_CENTER)
         await f.camera.save_photo("frame-test-photo.jpg")
-        await f.display.show_text("Photo saved!", 200, 150)
+        await f.display.show_text("Photo saved!", align=Alignment.MIDDLE_CENTER)
         # or with more control
         await f.camera.save_photo("frame-test-photo-2.jpg", autofocus_seconds=3, quality=f.camera.HIGH_QUALITY, autofocus_type=f.camera.AUTOFOCUS_TYPE_CENTER_WEIGHTED)
         # or get the raw bytes
@@ -85,6 +92,8 @@ async def main():
         await f.display.write_text(f"{batteryPercent}%", 640-8-batteryWidth, 40, batteryWidth, batteryHeight, Alignment.MIDDLE_CENTER)
         # write the time and date in the center of the screen
         await f.display.write_text(datetime.datetime.now().strftime("%-I:%M %p\n%a, %B %d, %Y"), align=Alignment.MIDDLE_CENTER)
+        # now show what we've been drawing to the buffer
+        await f.display.show()
 
     print("disconnected")
 
