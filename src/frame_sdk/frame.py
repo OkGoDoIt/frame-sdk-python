@@ -11,15 +11,16 @@ import re
 import time
 
 class Frame:
-    """Represents a Frame device.  Instantiate this class via `async with Frame() as f:`."""
+    """Represents a Frame device. Instantiate this class via `async with Frame() as f:`."""
     
-    bluetooth : Bluetooth = None
-    files : Files = None
-    camera : Camera = None
-    display : Display = None
-    microphone : Microphone = None
+    bluetooth: Bluetooth = None
+    files: Files = None
+    camera: Camera = None
+    display: Display = None
+    microphone: Microphone = None
     
     def __init__(self):
+        """Initialize the Frame device and its components."""
         self.bluetooth = Bluetooth()
         self.files = Files(self)
         self.camera = Camera(self)
@@ -27,15 +28,17 @@ class Frame:
         self.microphone = Microphone(self)
         
     async def __aenter__(self) -> 'Frame':
+        """Enter the asynchronous context manager."""
         await self.ensure_connected()
         return self
     
     async def __aexit__(self, exc_type: Optional[type], exc_value: Optional[BaseException], traceback: Optional[object]) -> None:
+        """Exit the asynchronous context manager."""
         if self.bluetooth.is_connected():
             await self.bluetooth.disconnect()
         
     async def ensure_connected(self) -> None:
-        """Ensure the Frame is connected, establishing a connection if not"""
+        """Ensure the Frame is connected, establishing a connection if not."""
         if not self.bluetooth.is_connected():
             await self.bluetooth.connect()
             await self.bluetooth.send_break_signal()
@@ -43,14 +46,31 @@ class Frame:
             await self.run_lua(f"frame.time.utc({int(time.time())});frame.time.zone('{time.strftime('%z')[:3]}:{time.strftime('%z')[3:]}')")
 
     async def evaluate(self, lua_expression: str) -> str:
-        """Evaluates a lua expression on the device and return the result."""
+        """Evaluates a Lua expression on the device and returns the result.
+        
+        Args:
+            lua_expression (str): The Lua expression to evaluate.
+        
+        Returns:
+            str: The result of the evaluation.
+        """
         await self.ensure_connected()
         return await self.run_lua(f"prntLng(tostring({lua_expression}))", await_print=True)
 
     async def run_lua(self, lua_string: str, await_print: bool = False, checked: bool = False, timeout: Optional[float] = None) -> Optional[str]:
         """
         Run a Lua string on the device, automatically determining the appropriate method based on length.
-        If `await_print=True`, the function will block until a Lua print() occurs, or a timeout.
+        
+        If `await_print=True` or `checked=True`, the function will block, otherwise it will return immediately.
+        
+        Args:
+            lua_string (str): The Lua code to execute.
+            await_print (bool): Whether to wait for a print statement from the Lua code.
+            checked (bool): Whether to wait for confirmation of successful execution.
+            timeout (Optional[float]): The maximum time to wait for execution.
+        
+        Returns:
+            Optional[str]: The result of the Lua execution if `await_print` is True.
         """
         await self.ensure_connected()
         # replace any print() calls with prntLng() calls
@@ -72,13 +92,20 @@ class Frame:
 
     async def send_long_lua(self, string: str, await_print: bool = False, checked: bool = False, timeout: Optional[float] = None) -> Optional[str]:
         """
-        Sends a Lua string to the device that is longer that the MTU limit and thus
+        Sends a Lua string to the device that is longer than the MTU limit and thus
         must be sent via writing to a file and requiring that file.
         
-        If `await_print=True`, the function will block until a Lua print()
-        occurs, or a timeout.
-        """
+        If `await_print=True` or `checked=True`, the function will block, otherwise it will return immediately.
         
+        Args:
+            string (str): The Lua code to execute.
+            await_print (bool): Whether to wait for a print statement from the Lua code.
+            checked (bool): Whether to wait for confirmation of successful execution.
+            timeout (Optional[float]): The maximum time to wait for execution.
+        
+        Returns:
+            Optional[str]: The result of the Lua execution if `await_print` is True.
+        """
         await self.ensure_connected()
         
         # we use a random name here since require() only works once per file.
@@ -99,13 +126,21 @@ class Frame:
         return response
     
     async def get_battery_level(self) -> int:
-        """Returns the battery level as a percentage between 1 and 100."""
+        """Returns the battery level as a percentage between 1 and 100.
+        
+        Returns:
+            int: The battery level percentage.
+        """
         await self.ensure_connected()
         response = await self.bluetooth.send_lua("print(frame.battery_level())", await_print=True)
         return int(float(response))
     
     async def sleep(self, seconds: Optional[float]) -> None:
-        """Sleeps for a given number of seconds. seconds can be a decimal number such as 1.25. If no argument is given, Frame will go to sleep until a tap gesture wakes it up."""
+        """Sleeps for a given number of seconds. If no argument is given, Frame will go to sleep until a tap gesture wakes it up.
+        
+        Args:
+            seconds (Optional[float]): The number of seconds to sleep.  This can be a decimal number such as 1.25.
+        """
         await self.ensure_connected()
         if seconds is None:
             await self.run_lua("frame.sleep()")
@@ -115,13 +150,22 @@ class Frame:
     async def stay_awake(self, value: bool) -> None:
         """Prevents Frame from going to sleep while it's docked onto the charging cradle.
         This can help during development where continuous power is needed, however may
-        degrade the display or cause burn-in if used for extended periods of time."""
+        degrade the display or cause burn-in if used for extended periods of time.
+        
+        Args:
+            value (bool): True to stay awake, False to allow sleep.
+        """
         await self.ensure_connected()
         await self.run_lua(f"frame.stay_awake({str(value).lower()})", checked=True)
     
     async def inject_library_function(self, name: str, function: str, version: int) -> None:
         """
-        Inject a function into the global environment of the device.
+        Inject a function into the global environment of the device.  Used to push helper library functions to the device.
+        
+        Args:
+            name (str): The name of the function.
+            function (str): The function code.
+            version (int): The version of the function.
         """
         await self.ensure_connected()
         
@@ -169,5 +213,12 @@ class Frame:
         
     
     def escape_lua_string(self, string: str) -> str:
-        """Escape a string for use in Lua."""
+        """Escape a string for use in Lua.
+        
+        Args:
+            string (str): The string to escape.
+        
+        Returns:
+            str: The escaped string.
+        """
         return string.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t").replace("\"", "\\\"").replace("[", "[").replace("]", "]")

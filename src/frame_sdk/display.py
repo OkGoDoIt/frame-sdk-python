@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from .frame import Frame
 
 class Alignment(Enum):
+    """Enum for text alignment options."""
     TOP_LEFT = 'top_left'
     TOP_CENTER = 'top_center'
     TOP_RIGHT = 'top_right'
@@ -222,9 +223,8 @@ char_width_mapping = {
 
 char_spacing = 4
 
-
 class Display:
-    """Helpers for displaying text and graphics on the Frame display."""
+    """Displays text and graphics on the Frame display."""
 
     frame: "Frame" = None
 
@@ -250,20 +250,37 @@ class Display:
     _line_height = 60
 
     @property
-    def line_height(self):
+    def line_height(self) -> int:
+        """Gets the height of each line of text in pixels. It is 60 by default, however you may override that value to change the vertical spacing of the text in all text displaying functions."""
         return self._line_height
 
     @line_height.setter
-    def line_height(self, value):
+    def line_height(self, value: int):
+        """Sets the height of each line of text in pixels. It is 60 by default, however you may override that value to change the vertical spacing of the text in all text displaying functions."""
         if value < 0:
             raise ValueError("line_height must be a non-negative integer")
         self._line_height = value
 
     def __init__(self, frame: "Frame"):
+        """
+        Initialize the Display class.
+
+        Args:
+            frame (Frame): The Frame object to associate with this display.
+        """
         self.frame = frame
         
     @staticmethod
     def parse_alignment(align: Alignment) -> tuple[str, str]:
+        """
+        Parse the alignment enum to horizontal and vertical alignment strings.
+
+        Args:
+            align (Alignment): The alignment enum value.
+
+        Returns:
+            tuple[str, str]: A tuple containing horizontal and vertical alignment strings.
+        """
         alignments = {
             Alignment.TOP_LEFT: ("left", "top"),
             Alignment.TOP_CENTER: ("center", "top"),
@@ -278,10 +295,32 @@ class Display:
         return alignments.get(align, ("left", "top"))
 
     async def show_text(self, text: str, x: int = 1, y: int = 1, max_width: Optional[int] = 640, max_height: Optional[int] = None, align: Alignment = Alignment.TOP_LEFT):
+        """
+        Show text on the display.
+
+        Args:
+            text (str): The text to display.
+            x (int): The left pixel position to start the text.  Defaults to 1.
+            y (int): The top pixel position to start the text.  Defaults to 1.
+            max_width (Optional[int]): The maximum width for the text bounding box. If text is wider than this, it will be word-wrapped onto multiple lines automatically. Set to the full width of the display by default (640px), but can be overridden with None/null to disable word-wrapping.
+            max_height (Optional[int]): The maximum height for the text bounding box. If text is taller than this, it will be cut off at that height. Also useful for vertical alignment. Set to the full height of the display by default (400px).
+            align (Alignment): The alignment of the text, both horizontally if a max_width is provided, and vertically if a max_height is provided. Can be any value in frame.display.Alignment, such as Alignment.TOP_LEFT, Alignment.MIDDLE_CENTER, etc.
+        """
         await self.write_text(text, x, y, max_width, max_height, align)
         await self.show()
 
     async def write_text(self, text: str, x: int = 1, y: int = 1, max_width: Optional[int] = 640, max_height: Optional[int] = None, align: Alignment = Alignment.TOP_LEFT):
+        """
+        Write text to the display buffer.
+
+        Args:
+            text (str): The text to write.
+            x (int): The left pixel position to start the text.  Defaults to 1.
+            y (int): The top pixel position to start the text.  Defaults to 1.
+            max_width (Optional[int]): The maximum width for the text bounding box. If text is wider than this, it will be word-wrapped onto multiple lines automatically. Set to the full width of the display by default (640px), but can be overridden with None/null to disable word-wrapping.
+            max_height (Optional[int]): The maximum height for the text bounding box. If text is taller than this, it will be cut off at that height. Also useful for vertical alignment. Set to the full height of the display by default (400px).
+            align (Alignment): The alignment of the text, both horizontally if a max_width is provided, and vertically if a max_height is provided. Can be any value in frame.display.Alignment, such as Alignment.TOP_LEFT, Alignment.MIDDLE_CENTER, etc.
+        """
         if max_width is not None:
             text = self.wrap_text(text, max_width)
 
@@ -306,6 +345,14 @@ class Display:
                 break
             
     async def scroll_text(self, text: str, lines_per_frame: int = 5, delay: float = 0.12):
+        """
+        Scroll text vertically on the display.
+
+        Args:
+            text (str): The text to scroll. It is automatically wrapped to fit the display width.
+            lines_per_frame (int): The number of vertical pixels to scroll per frame. Defaults to 5. Higher values scroll faster, but will be more jumpy.
+            delay (float): The delay between frames in seconds. Defaults to 0.12 seconds. Lower values are faster, but may cause graphical glitches.
+        """
         margin = self.line_height
         text = self.wrap_text(text, 640)
         total_height = self.get_text_height(text)
@@ -315,6 +362,16 @@ class Display:
         await self.frame.run_lua(f"scrollText(\"{self.frame.escape_lua_string(text)}\",{self.line_height},{total_height},{lines_per_frame},{delay})",checked=True,timeout=total_height/lines_per_frame*(delay+0.1)+5)
 
     def wrap_text(self, text: str, max_width: int) -> str:
+        """
+        Wrap text to fit within a specified width.
+
+        Args:
+            text (str): The text to wrap.
+            max_width (int): The maximum width for the text bounding box.
+
+        Returns:
+            str: The wrapped text.
+        """
         lines = text.split("\n")
         output = ""
         for line in lines:
@@ -335,25 +392,60 @@ class Display:
                     output += this_line+"\n"
         return output.rstrip("\n")
 
-    def get_text_height(self, text: str):
+    def get_text_height(self, text: str) -> int:
+        """
+        Gets the rendered height of text in pixels.
+        This does not perform any text wrapping but does respect any manually-included line breaks.
+        The rendered height is affected by the `line_height` property.
+
+        Args:
+            text (str): The text to measure.
+
+        Returns:
+            int: The height of the text in pixels.
+        """
         num_lines = text.count("\n") + 1
         return num_lines * (self.line_height)
 
-    def get_text_width(self, text: str):
+    def get_text_width(self, text: str) -> int:
+        """
+        Gets the rendered width of text in pixels.
+        Text on Frame is variable width, so this is important for positioning text.
+        This does not perform any text wrapping but does respect any manually-included line breaks.
+
+        Args:
+            text (str): The text to measure.
+
+        Returns:
+            int: The width of the text in pixels.
+        """
         width = 0
         for char in text:
             width += char_width_mapping.get(ord(char), 25) + char_spacing
         return width
 
     async def show(self):
-        """Swaps the buffer to show the changes."""
+        """Swaps the buffer to show the changes.
+        The Frame display has 2 buffers. All writing to the display via frame.display.write_text(), frame.display.draw_rect(), etc write to an off-screen buffer and are not visible. This allows you to write multiple actions at once. When you have completed drawing and want to show it to the user, call frame.display.show() which will display the buffered graphics and clear a new off-screen buffer for whatever you want to draw next."""
         await self.frame.run_lua("frame.display.show()", checked=True)
 
     async def clear(self):
+        """Clears the display."""
         await self.frame.run_lua("frame.display.bitmap(1,1,4,2,15,\"\\xFF\")")
         await self.show()
 
     async def set_palette(self, index: int, color: tuple[int, int, int]):
+        """
+        Sets a color in the display palette.
+
+        Args:
+            index (int): The index of the color to set.
+            color (tuple[int, int, int]): The RGB color tuple.
+
+        Raises:
+            ValueError: If the index is out of range.
+            NotImplementedError: If the function is not yet implemented in the Frame firmware.
+        """
         raise NotImplementedError(
             "assign_color is not yet working in the Frame firmware")
         if index == 16:
@@ -364,10 +456,32 @@ class Display:
         await self.frame.run_lua(f"frame.display.assign_color({index+1},{color[0]},{color[1]},{color[2]})", checked=True)
 
     async def draw_rect(self, x: int, y: int, w: int, h: int, color: int = 1):
+        """
+        Draws a filled rectangle on the display.
+
+        Args:
+            x (int): The x position of the upper-left corner of the rectangle.
+            y (int): The y position of the upper-left corner of the rectangle.
+            w (int): The width of the rectangle.
+            h (int): The height of the rectangle.
+            color (int): The color of the rectangle.
+        """
         w = w // 8 * 8
         await self.frame.run_lua(f"frame.display.bitmap({x},{y},{w},2,{color},string.rep(\"\\xFF\",{(w//8)*h}))")
 
     async def draw_rect_filled(self, x: int, y: int, w: int, h: int, border_width: int, border_color: int, fill_color: int):
+        """
+        Draws a filled rectangle with a border on the display.
+
+        Args:
+            x (int): The x position of the upper-left corner of the rectangle.
+            y (int): The y position of the upper-left corner of the rectangle.
+            w (int): The width of the rectangle.
+            h (int): The height of the rectangle.
+            border_width (int): The width of the border in pixels.
+            border_color (int): The color of the border.
+            fill_color (int): The color of the fill.
+        """
         w = w // 8 * 8
         if border_width > 0:
             border_width = border_width // 8 * 8

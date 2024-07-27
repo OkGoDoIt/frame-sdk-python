@@ -53,12 +53,6 @@ class Bluetooth:
 
         Args:
             data (bytearray): The data received from the device as raw bytes
-
-        Raises:
-            Exception: _description_
-            Exception: _description_
-            Exception: _description_
-            Exception: _description_
         """
         if data[0] == _FRAME_LONG_TEXT_PREFIX:
             # start of long printed data from prntLng() function
@@ -144,10 +138,16 @@ class Bluetooth:
 
     @property
     def data_response_handler(self) -> Callable[[bytes], None]:
+        """Gets the data response handler which would be called when data is received from the device."""
         return self._user_data_response_handler
 
     @data_response_handler.setter
     def data_response_handler(self, handler: Callable[[bytes], None]) -> None:
+        """Sets the data response handler which will be called when data is received from the device.  This is an alternative to using `wait_for_data()`, to support asynchronous data handling.
+
+        Args:
+            handler (Callable[[bytes], None]): The handler function to be called when data is received.
+        """
         if handler is None:
             self._user_data_response_handler = lambda _: None
         else:
@@ -155,10 +155,16 @@ class Bluetooth:
 
     @property
     def print_response_handler(self) -> Callable[[str], None]:
+        """Gets the print response handler which would be called when a print response is received."""
         return self._user_print_response_handler
 
     @print_response_handler.setter
     def print_response_handler(self, handler: Callable[[str], None]) -> None:
+        """Sets the print response handler which will be called when a print response is received.  This is an alternative to using `wait_for_print()`, to support asynchronous print handling.
+
+        Args:
+            handler (Callable[[str], None]): The handler function to be called when a print response is received.
+        """
         if handler is None:
             self._user_print_response_handler = lambda _: None
         else:
@@ -166,26 +172,15 @@ class Bluetooth:
 
     async def connect(
         self,
-        print_response_handler: Callable[[str], None] = lambda _: None,
-        data_response_handler: Callable[[bytes], None] = lambda _: None,
-        disconnect_handler: Callable[[], None] = lambda: None,
         print_debugging: bool = False,
         default_timeout: float = 10.0,
     ) -> None:
         """
         Connects to the nearest Frame device.
-
-        `print_response_handler` and `data_response_handler` can be provided and
-        will be called whenever data arrives from the device asynchronously.
-
-        `disconnect_handler` can be provided to be called to run upon a disconnect.
         
-        `print_debugging` will output the raw bytes that are sent and received from Frame if set to True
+        `print_debugging` will output the raw bytes that are sent and received from Frame if set to True.
         `default_timeout` is the default timeout for waiting for a response from Frame, in seconds.  Defaults to 10 seconds.
         """
-        self._user_disconnect_handler = disconnect_handler
-        self._user_print_response_handler = print_response_handler
-        self._user_data_response_handler = data_response_handler
         self._print_debugging = print_debugging
         self._default_timeout = default_timeout
 
@@ -272,7 +267,10 @@ class Bluetooth:
     @default_timeout.setter
     def default_timeout(self, value: float) -> None:
         """
-        Sets the default timeout value in seconds
+        Sets the default timeout value in seconds.  When waiting for print or data without specifying a timeout, this value will be used as the default timeout.
+
+        Args:
+            value (float): The timeout value in seconds. Must be non-negative.
         """
         if value < 0:
             raise ValueError("default_timeout must be a non-negative float")
@@ -281,14 +279,17 @@ class Bluetooth:
     @property
     def print_debugging(self) -> bool:
         """
-        Gets whether to print debugging information when sending data.
+        Gets whether to print debugging information when sending and receiving data.
         """
         return self._print_debugging
 
     @print_debugging.setter
     def print_debugging(self, value: bool) -> None:
         """
-        Sets whether to print debugging information when sending data.
+        Sets whether to print debugging information when sending and receiving data.
+
+        Args:
+            value (bool): Whether to print debugging information.
         """
         self._print_debugging = value
 
@@ -318,6 +319,14 @@ class Bluetooth:
         
         If `await_print=True`, the function will block until a Lua print()
         occurs, or a timeout.
+
+        Args:
+            string (str): The Lua string to send.
+            await_print (bool): Whether to block while waiting for a print response.
+            timeout (Optional[float]): The timeout for waiting for a print response.  If not provided, the default timeout will be used.
+
+        Returns:
+            Optional[str]: The print response if `await_print` is True, otherwise None.
         """
         await self._transmit(string.encode())
 
@@ -327,6 +336,12 @@ class Bluetooth:
     async def wait_for_print(self, timeout: Optional[float] = None) -> str:
         """
         Waits until a Lua print() occurs, with a max timeout in seconds.  If `timeout` is not provided, the default timeout will be used, rather than no timeout at all.
+
+        Args:
+            timeout (Optional[float]): The timeout for waiting for a print response.  If not provided, the default timeout will be used.
+
+        Returns:
+            str: The last print response received.
         """
         if timeout is None:
             timeout = self._default_timeout
@@ -343,6 +358,12 @@ class Bluetooth:
     async def wait_for_data(self, timeout: Optional[float] = None) -> bytes:
         """
         Waits until data has been received from the device, with a max timeout in seconds.  If `timeout` is not provided, the default timeout will be used, rather than no timeout at all.
+
+        Args:
+            timeout (Optional[float]): The timeout for waiting for a data response.  If not provided, the default timeout will be used.
+
+        Returns:
+            bytes: The last data response received.
         """
         if timeout is None:
             timeout = self._default_timeout
@@ -362,6 +383,13 @@ class Bluetooth:
         
         If `await_data=True`, the function will block until a data response
         occurs, or a timeout.
+
+        Args:
+            data (bytearray): The raw data to send.
+            await_data (bool): Whether to block while waiting for a data response.
+
+        Returns:
+            Optional[bytes]: The data response if `await_data` is True, otherwise None.
         """
         await self._transmit(bytearray(b"\x01") + data)
 
