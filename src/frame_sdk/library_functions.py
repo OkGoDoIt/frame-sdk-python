@@ -1,5 +1,4 @@
 # these are some helper functions that we run on the Frame.  The SDK will not work well if these do not exist.  Every time you connect to a Frame, the SDK will automatically inject these functions into the Frame.
-library_version = 1
 library_print_long = """
 function prntLng(stringToPrint)
 	local mtu = frame.bluetooth.max_length()
@@ -173,5 +172,44 @@ function scrollText(text, line_height, total_height, lines_per_frame, delay)
     extra_time = frame.time.utc() + (1 * line_height / lines_per_frame * delay)
     while frame.time.utc() < extra_time do
     end
+end
+
+function microphoneRecordAndSend(sample_rate, bit_depth, max_time_in_seconds)
+    frame.microphone.start{sample_rate=sample_rate, bit_depth=bit_depth}
+    local end_time = frame.time.utc() + 60 * 60 * 24
+    local max_packet_size = frame.bluetooth.max_length() - 4
+    if max_time_in_seconds ~= nil then
+        end_time = frame.time.utc() + max_time_in_seconds
+    end
+    local chunk_count = 0
+
+    if max_packet_size % 2 ~= 0 then
+        max_packet_size = max_packet_size - 1
+    end
+
+    while frame.time.utc() < end_time do
+        s = frame.microphone.read(max_packet_size)
+        if s == nil then
+            break
+        end
+        if s ~= '' then
+            while true do
+                if max_time_in_seconds ~= nil then
+                    if pcall(frame.bluetooth.send, '\\001' .. s) then
+                        break
+                    end
+                else
+                    if pcall(frame.bluetooth.send, '\\005' .. s) then
+                        break
+                    end
+                end
+            end
+            chunk_count = chunk_count + 1
+        end
+    end
+    if max_time_in_seconds ~= nil then
+        frame.bluetooth.send('\\002' .. tostring(chunk_count))
+    end
+    frame.microphone.stop()
 end
 """

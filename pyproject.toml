@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "frame-sdk"
-version = "0.1"
+version = "0.2"
 authors = [{ name = "Roger Pincombe", email = "pip@betechie.com" },{ name = "Brilliant Labs", email = "info@brilliant.xyz" }]
 description = "Python Developer SDK for Brilliant Frame glasses"
 readme = "readme.md"
@@ -14,7 +14,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
-dependencies = ["bleak", "exif"]
+dependencies = ["bleak", "exif", "numpy", "simpleaudio"]
 
 [project.urls]
 "Homepage" = "https://github.com/OkGoDoIt/frame-sdk-python"

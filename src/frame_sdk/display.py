@@ -314,7 +314,7 @@ class Display:
             return
         await self.frame.run_lua(f"scrollText(\"{self.frame.escape_lua_string(text)}\",{self.line_height},{total_height},{lines_per_frame},{delay})",checked=True,timeout=total_height/lines_per_frame*(delay+0.1)+5)
 
-    def wrap_text(self, text: str, max_width: int):
+    def wrap_text(self, text: str, max_width: int) -> str:
         lines = text.split("\n")
         output = ""
         for line in lines:
@@ -363,7 +363,7 @@ class Display:
         self.palette[index] = color
         await self.frame.run_lua(f"frame.display.assign_color({index+1},{color[0]},{color[1]},{color[2]})", checked=True)
 
-    async def draw_rect(self, x: int, y: int, w: int, h: int, color: int):
+    async def draw_rect(self, x: int, y: int, w: int, h: int, color: int = 1):
         w = w // 8 * 8
         await self.frame.run_lua(f"frame.display.bitmap({x},{y},{w},2,{color},string.rep(\"\\xFF\",{(w//8)*h}))")
 

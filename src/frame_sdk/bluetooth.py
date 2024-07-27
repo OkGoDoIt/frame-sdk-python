@@ -142,6 +142,28 @@ class Bluetooth:
             self._print_response_event.set()
             self._user_print_response_handler(data.decode())
 
+    @property
+    def data_response_handler(self) -> Callable[[bytes], None]:
+        return self._user_data_response_handler
+
+    @data_response_handler.setter
+    def data_response_handler(self, handler: Callable[[bytes], None]) -> None:
+        if handler is None:
+            self._user_data_response_handler = lambda _: None
+        else:
+            self._user_data_response_handler = handler
+
+    @property
+    def print_response_handler(self) -> Callable[[str], None]:
+        return self._user_print_response_handler
+
+    @print_response_handler.setter
+    def print_response_handler(self, handler: Callable[[str], None]) -> None:
+        if handler is None:
+            self._user_print_response_handler = lambda _: None
+        else:
+            self._user_print_response_handler = handler
+
     async def connect(
         self,
         print_response_handler: Callable[[str], None] = lambda _: None,

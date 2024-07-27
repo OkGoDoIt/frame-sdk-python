@@ -1,9 +1,11 @@
 import asyncio
+import hashlib
 from typing import Optional
 from .bluetooth import Bluetooth
 from .files import Files
 from .camera import Camera
 from .display import Display
+from .microphone import Microphone
 import random
 import re
 import time
@@ -15,12 +17,14 @@ class Frame:
     files : Files = None
     camera : Camera = None
     display : Display = None
+    microphone : Microphone = None
     
     def __init__(self):
         self.bluetooth = Bluetooth()
         self.files = Files(self)
         self.camera = Camera(self)
         self.display = Display(self)
+        self.microphone = Microphone(self)
         
     async def __aenter__(self) -> 'Frame':
         await self.ensure_connected()
@@ -126,22 +130,22 @@ class Frame:
             print(f"Function {name} exists: {exists}")
         if (exists != "true"):
             # function does not yet exist, so let's see if the file for it does
-            exists = await self.files.file_exists(f"/lib-v{version}/{name}.lua")
+            exists = await self.files.file_exists(f"/lib-{version}/{name}.lua")
             if (self.bluetooth._print_debugging):
-                print(f"File /lib-v{version}/{name}.lua exists: {exists}")
+                print(f"File /lib-{version}/{name}.lua exists: {exists}")
 
             if (exists):
-                response = await self.bluetooth.send_lua(f"require(\"lib-v{version}/{name}\");print(\"l\")", await_print=True)
+                response = await self.bluetooth.send_lua(f"require(\"lib-{version}/{name}\");print(\"l\")", await_print=True)
                 if response == "l":
                     return
             
             if (self.bluetooth._print_debugging):
-                print(f"Writing file /lib-v{version}/{name}.lua")
-            await self.files.write_file(f"/lib-v{version}/{name}.lua", function.encode(), checked=True)
+                print(f"Writing file /lib-{version}/{name}.lua")
+            await self.files.write_file(f"/lib-{version}/{name}.lua", function.encode(), checked=True)
             
             if (self.bluetooth._print_debugging):
-                print(f"Requiring lib-v{version}/{name}")
-            response = await self.bluetooth.send_lua(f"require(\"lib-v{version}/{name}\");print(\"l\")", await_print=True)
+                print(f"Requiring lib-{version}/{name}")
+            response = await self.bluetooth.send_lua(f"require(\"lib-{version}/{name}\");print(\"l\")", await_print=True)
             if response != "l":
                 raise Exception(f"Error injecting library function: {response}")
             
@@ -149,10 +153,12 @@ class Frame:
         """
         Inject all library functions into the global environment of the device.
         """
-        from .library_functions import library_print_long, library_version
+        from .library_functions import library_print_long
+        # hash the library_print_long function to get a version id (take only the first 6 chars)
+        library_version = hashlib.sha256(library_print_long.encode()).hexdigest()[:6]
         
         await self.ensure_connected()
-        response = await self.bluetooth.send_lua(f"frame.file.mkdir(\"lib-v{library_version}\");print(\"c\")", await_print=True)
+        response = await self.bluetooth.send_lua(f"frame.file.mkdir(\"lib-{library_version}\");print(\"c\")", await_print=True)
         if response == "c":
             if (self.bluetooth._print_debugging):
                 print("Created lib directory")

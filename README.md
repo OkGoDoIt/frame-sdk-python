@@ -61,6 +61,22 @@ async def main():
         # or get the raw bytes
         photo_bytes = await f.camera.take_photo(autofocus_seconds=1)
 
+        print("About to record until you stop talking")
+        await f.display.show_text("Say something...", align=Alignment.MIDDLE_CENTER)
+		# record audio to a file
+        length = await f.microphone.save_audio_file("test-audio.wav")
+        print(f"Recorded {length:01.1f} seconds: \"./test-audio.wav\"")
+        await f.display.show_text(f"Recorded {length:01.1f} seconds", align=Alignment.MIDDLE_CENTER)
+        await asyncio.sleep(3)
+
+        # or get the audio directly in memory
+        await f.display.show_text("Say something else...", align=Alignment.MIDDLE_CENTER)
+        audio_data = await f.microphone.record_audio(max_length_in_seconds=10)
+        await f.display.show_text(f"Playing back {len(audio_data) * f.microphone.sample_rate:01.1f} seconds of audio", align=Alignment.MIDDLE_CENTER)
+        # you can play back the audio on your computer
+        f.microphone.play_audio(audio_data)
+        # or process it using other audio handling libraries, upload to a speech-to-text service, etc.
+		
         # Show the full palette
         width = 640 // 4
         height = 400 // 4
