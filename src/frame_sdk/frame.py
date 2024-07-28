@@ -6,6 +6,7 @@ from .files import Files
 from .camera import Camera
 from .display import Display
 from .microphone import Microphone
+from .motion import Motion
 import random
 import re
 import time
@@ -18,6 +19,7 @@ class Frame:
     camera: Camera = None
     display: Display = None
     microphone: Microphone = None
+    motion: Motion = None
     
     def __init__(self):
         """Initialize the Frame device and its components."""
@@ -26,6 +28,7 @@ class Frame:
         self.camera = Camera(self)
         self.display = Display(self)
         self.microphone = Microphone(self)
+        self.motion = Motion(self)
         
     async def __aenter__(self) -> 'Frame':
         """Enter the asynchronous context manager."""
