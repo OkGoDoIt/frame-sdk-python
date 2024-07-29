@@ -169,11 +169,11 @@ class Motion:
         return direction
     
     
-    async def run_on_tap(self, lua_script: Optional[str] = None, callback: Optional[Callable[[], Awaitable[None]]] = None) -> None:
+    async def run_on_tap(self, lua_script: Optional[str] = None, callback: Optional[Callable[[], None]] = None) -> None:
         """Run a callback when the Frame is tapped.  Can include lua code to be run on Frame upon tap and/or a python callback to be run locally upon tap."""
         
         if callback is not None:
-            self.frame.bluetooth.register_data_response_handler(_FRAME_TAP_PREFIX, lambda data: asyncio.create_task(callback()))
+            self.frame.bluetooth.register_data_response_handler(_FRAME_TAP_PREFIX, callback)
         else:
             self.frame.bluetooth.register_data_response_handler(_FRAME_TAP_PREFIX, None)
         

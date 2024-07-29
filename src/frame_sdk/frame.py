@@ -48,7 +48,7 @@ class Frame:
             await self.bluetooth.connect()
             await self.bluetooth.send_break_signal()
             await self.inject_all_library_functions()
-            await self.run_lua(f"frame.time.utc({int(time.time())});frame.time.zone('{time.strftime('%z')[:3]}:{time.strftime('%z')[3:]}')")
+            await self.run_lua(f"frame.time.utc({int(time.time())});frame.time.zone('{time.strftime('%z')[:3]}:{time.strftime('%z')[3:]}')", checked=True)
 
     async def evaluate(self, lua_expression: str) -> str:
         """Evaluates a Lua expression on the device and returns the result.
@@ -228,13 +228,13 @@ class Frame:
         """
         return string.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t").replace("\"", "\\\"").replace("[", "[").replace("]", "]")
     
-    async def run_on_wake(self, lua_script: Optional[str] = None, callback: Optional[Callable[[], Awaitable[None]]] = None) -> None:
+    async def run_on_wake(self, lua_script: Optional[str] = None, callback: Optional[Callable[[], None ]] = None) -> None:
         """
         Runs a Lua function when the device wakes up from sleep.  Can include lua code to be run on Frame upon wake and/or a python callback to be run locally upon wake.
         """
 
         if callback is not None:
-            self.bluetooth.register_data_response_handler(_FRAME_WAKE_PREFIX, lambda data: asyncio.create_task(callback()))
+            self.bluetooth.register_data_response_handler(_FRAME_WAKE_PREFIX, lambda data: callback())
         else:
             self.bluetooth.register_data_response_handler(_FRAME_WAKE_PREFIX, None)
         

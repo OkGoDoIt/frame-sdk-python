@@ -76,10 +76,24 @@ async def main():
         # or get the audio directly in memory
         await f.display.show_text("Say something else...", align=Alignment.MIDDLE_CENTER)
         audio_data = await f.microphone.record_audio(max_length_in_seconds=10)
-        await f.display.show_text(f"Playing back {len(audio_data) * f.microphone.sample_rate:01.1f} seconds of audio", align=Alignment.MIDDLE_CENTER)
+        await f.display.show_text(f"Playing back {len(audio_data) / f.microphone.sample_rate:01.1f} seconds of audio", align=Alignment.MIDDLE_CENTER)
         # you can play back the audio on your computer
         f.microphone.play_audio(audio_data)
         # or process it using other audio handling libraries, upload to a speech-to-text service, etc.
+
+        print("Move around to track intensity of your motion")
+        await f.display.show_text("Move around to track intensity of your motion", align=Alignment.MIDDLE_CENTER)
+        intensity_of_motion = 0
+        prev_direction = await f.motion.get_direction()
+        for _ in range(10):
+            await asyncio.sleep(0.1)
+            direction = await f.motion.get_direction()
+            intensity_of_motion = max(intensity_of_motion, (direction-prev_direction).amplitude())
+            prev_direction = direction
+        print(f"Intensity of motion: {intensity_of_motion:01.2f}")
+        await f.display.show_text(f"Intensity of motion: {intensity_of_motion:01.2f}", align=Alignment.MIDDLE_CENTER)
+        print("Tap the Frame to continue...")
+        await f.motion.wait_for_tap()
 		
         # Show the full palette
         width = 640 // 4

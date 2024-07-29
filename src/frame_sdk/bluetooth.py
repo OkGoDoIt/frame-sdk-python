@@ -144,13 +144,17 @@ class Bluetooth:
         if handler is None:
             self._user_data_response_handlers.pop(prefix, None)
         else:
-            self._user_data_response_handlers[prefix] = handler
+            if handler.__code__.co_argcount == 0:
+                self._user_data_response_handlers[prefix] = lambda _: handler()
+            else:
+                self._user_data_response_handlers[prefix] = handler
             
     def call_data_response_handlers(self, data: bytes) -> None:
         """Calls all data response handlers which match the received data."""
         for prefix, handler in self._user_data_response_handlers.items():
-            if prefix == None or data.startswith(prefix):
-                handler(data[len(prefix):])
+            if prefix is None or data.startswith(prefix):
+                if handler is not None:
+                    handler(data[len(prefix):])
 
     @property
     def print_response_handler(self) -> Callable[[str], None]:
