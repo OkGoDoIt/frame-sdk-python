@@ -52,6 +52,10 @@ async def main():
         # It will also automatically handle responses that are too long for the MTU automatically.
         print(await f.evaluate("1+2"))
 
+        print("Tap the Frame to continue...")
+        await f.display.show_text("Tap the Frame to take a photo", align=Alignment.MIDDLE_CENTER)
+        await f.motion.wait_for_tap()
+
         # take a photo and save to disk
         await f.display.show_text("Taking photo...", align=Alignment.MIDDLE_CENTER)
         await f.camera.save_photo("frame-test-photo.jpg")
@@ -86,7 +90,9 @@ async def main():
             await f.display.draw_rect(tile_x*width+1, tile_y*height+1, width, height, color)
             await f.display.write_text(f"{color}", tile_x*width+width//2+1, tile_y*height+height//2+1)
         await f.display.show()
-        await asyncio.sleep(5)
+
+        print("Tap the Frame to continue...")
+        await f.motion.wait_for_tap()
 
         # scroll some long text
         await f.display.scroll_text("Never gonna give you up\nNever gonna let you down\nNever gonna run around and desert you\nNever gonna make you cry\nNever gonna say goodbye\nNever gonna tell a lie and hurt you")
@@ -110,6 +116,22 @@ async def main():
         await f.display.write_text(datetime.datetime.now().strftime("%-I:%M %p\n%a, %B %d, %Y"), align=Alignment.MIDDLE_CENTER)
         # now show what we've been drawing to the buffer
         await f.display.show()
+
+        # set a wake screen via script, so when you tap to wake the frame, it shows the battery and time
+        await f.run_on_wake("""frame.display.text('Battery: ' .. frame.battery_level() ..  '%', 10, 10);
+                            if frame.time.utc() > 10000 then
+                                local time_now = frame.time.date();
+                                frame.display.text(time_now['hour'] .. ':' .. time_now['minute'], 300, 160);
+                                frame.display.text(time_now['month'] .. '/' .. time_now['day'] .. '/' .. time_now['year'], 300, 220) 
+                            end;
+                            frame.display.show();
+                            frame.sleep(10);
+                            frame.display.text(' ',1,1);
+                            frame.display.show();
+                            frame.sleep()""")
+
+        # tell frame to sleep after 10 seconds then clear the screen and go to sleep, without blocking for that
+        await f.run_lua("frame.sleep(10);frame.display.text(' ',1,1);frame.display.show();frame.sleep()")
 
     print("disconnected")
 
