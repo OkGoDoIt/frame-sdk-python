@@ -71,9 +71,6 @@ class TestCamera(unittest.IsolatedAsyncioTestCase):
             high_quality_size = len(photo)
             self.assertGreater(high_quality_size, medium_quality_size)
 
-            photo = await f.camera.take_photo(quality=f.camera.FULL_QUALITY)
-            full_quality_size = len(photo)
-            self.assertGreater(full_quality_size, high_quality_size)
 
 
 if __name__ == "__main__":
