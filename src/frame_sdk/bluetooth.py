@@ -9,6 +9,9 @@ _FRAME_LONG_TEXT_END_PREFIX = 11
 _FRAME_LONG_DATA_PREFIX = 1
 _FRAME_LONG_DATA_END_PREFIX = 2
 
+_FRAME_TAP_PREFIX = b'\x04'
+_FRAME_MIC_DATA_PREFIX = b'\x05'
+
 class Bluetooth:
     """
     Frame bluetooth class for managing a connection and transferring data to and
@@ -38,7 +41,7 @@ class Bluetooth:
         self._ongoing_data_response: Optional[bytearray] = None
         self._ongoing_data_response_chunk_count: Optional[int] = None
         self._data_response_event: asyncio.Event = asyncio.Event()
-        self._user_data_response_handler: Callable[[bytes], None] = lambda _: None
+        self._user_data_response_handlers: Dict[bytes, Callable[[bytes], None]] = {}
 
 
     def _disconnect_handler(self, _: Any) -> None:
@@ -49,7 +52,7 @@ class Bluetooth:
 
 
     async def _notification_handler(self, _: Any, data: bytearray) -> None:
-        """Called internally when a notification is received from the device.  To add your own handlers, supply a `data_response_handler` and/or `print_response_handler` when connecting.
+        """Called internally when a notification is received from the device.  To add your own handlers, call `register_data_response_handler()` and/or `register_print_response_handler()` when connecting.
 
         Args:
             data (bytearray): The data received from the device as raw bytes
@@ -118,7 +121,7 @@ class Bluetooth:
                     print("Finished receiving long raw data: No data")
                 else:
                     print(f"Finished receiving long raw data: {len(self._last_data_response)} bytes")
-            self._user_data_response_handler(self._last_data_response)
+            self.call_data_response_handlers(self._last_data_response)
             
         elif data[0] == _FRAME_DATA_PREFIX:
             # received single chunk raw data from frame.bluetooth.send(data)
@@ -126,7 +129,7 @@ class Bluetooth:
                 print(f"Received data: {len(data[1:])} bytes")
             self._last_data_response = data[1:]
             self._data_response_event.set()
-            self._user_data_response_handler(data[1:])
+            self.call_data_response_handlers(data[1:])
             
         else:
             # received single chunk printed text from print()
@@ -136,22 +139,18 @@ class Bluetooth:
             self._print_response_event.set()
             self._user_print_response_handler(data.decode())
 
-    @property
-    def data_response_handler(self) -> Callable[[bytes], None]:
-        """Gets the data response handler which would be called when data is received from the device."""
-        return self._user_data_response_handler
-
-    @data_response_handler.setter
-    def data_response_handler(self, handler: Callable[[bytes], None]) -> None:
-        """Sets the data response handler which will be called when data is received from the device.  This is an alternative to using `wait_for_data()`, to support asynchronous data handling.
-
-        Args:
-            handler (Callable[[bytes], None]): The handler function to be called when data is received.
-        """
+    def register_data_response_handler(self, prefix: bytes = None, handler: Callable[[bytes], None] = None) -> None:
+        """Registers a data response handler which will be called when data is received from the device that starts with the specified prefix."""
         if handler is None:
-            self._user_data_response_handler = lambda _: None
+            self._user_data_response_handlers.pop(prefix, None)
         else:
-            self._user_data_response_handler = handler
+            self._user_data_response_handlers[prefix] = handler
+            
+    def call_data_response_handlers(self, data: bytes) -> None:
+        """Calls all data response handlers which match the received data."""
+        for prefix, handler in self._user_data_response_handlers.items():
+            if prefix == None or data.startswith(prefix):
+                handler(data[len(prefix):])
 
     @property
     def print_response_handler(self) -> Callable[[str], None]:

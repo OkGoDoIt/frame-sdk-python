@@ -1,6 +1,6 @@
 import asyncio
 import hashlib
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 from .bluetooth import Bluetooth
 from .files import Files
 from .camera import Camera
@@ -10,6 +10,8 @@ from .motion import Motion
 import random
 import re
 import time
+
+_FRAME_WAKE_PREFIX = b'\x03'
 
 class Frame:
     """Represents a Frame device. Instantiate this class via `async with Frame() as f:`."""
@@ -225,3 +227,22 @@ class Frame:
             str: The escaped string.
         """
         return string.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t").replace("\"", "\\\"").replace("[", "[").replace("]", "]")
+    
+    async def run_on_wake(self, lua_script: Optional[str] = None, callback: Optional[Callable[[], Awaitable[None]]] = None) -> None:
+        """
+        Runs a Lua function when the device wakes up from sleep.  Can include lua code to be run on Frame upon wake and/or a python callback to be run locally upon wake.
+        """
+
+        if callback is not None:
+            self.bluetooth.register_data_response_handler(_FRAME_WAKE_PREFIX, lambda data: asyncio.create_task(callback()))
+        else:
+            self.bluetooth.register_data_response_handler(_FRAME_WAKE_PREFIX, None)
+        
+        if lua_script is not None and callback is not None:
+            await self.files.write_file("main.lua",("frame.bluetooth.send('\\x"+(_FRAME_WAKE_PREFIX.hex(':').replace(':','\\x'))+"');\n"+lua_script).encode(), checked=True)
+        elif lua_script is None and callback is not None:
+            await self.files.write_file("main.lua",("frame.bluetooth.send('\\x"+(_FRAME_WAKE_PREFIX.hex(':').replace(':','\\x'))+"')").encode(), checked=True)
+        elif lua_script is not None and callback is None:
+            await self.files.write_file("main.lua",lua_script.encode(), checked=True)
+        else:
+            await self.files.delete_file("main.lua")

@@ -1,7 +1,9 @@
 from __future__ import annotations
 import math
-from typing import Optional, TYPE_CHECKING, Tuple
+from typing import Awaitable, Callable, Optional, TYPE_CHECKING, Tuple
 import asyncio
+
+_FRAME_TAP_PREFIX = b'\x04'
 
 if TYPE_CHECKING:
     from .frame import Frame
@@ -165,3 +167,28 @@ class Motion:
         direction = Direction(roll=float(result[0]), pitch=float(result[1]), heading=float(result[2]))
         
         return direction
+    
+    
+    async def run_on_tap(self, lua_script: Optional[str] = None, callback: Optional[Callable[[], Awaitable[None]]] = None) -> None:
+        """Run a callback when the Frame is tapped.  Can include lua code to be run on Frame upon tap and/or a python callback to be run locally upon tap."""
+        
+        if callback is not None:
+            self.frame.bluetooth.register_data_response_handler(_FRAME_TAP_PREFIX, lambda data: asyncio.create_task(callback()))
+        else:
+            self.frame.bluetooth.register_data_response_handler(_FRAME_TAP_PREFIX, None)
+        
+        if lua_script is not None and callback is not None:
+            await self.frame.run_lua("function on_tap();frame.bluetooth.send('\\x"+(_FRAME_TAP_PREFIX.hex(':').replace(':','\\x'))+"');"+lua_script+";end;frame.imu.tap_callback(on_tap)", checked=True)
+        elif lua_script is None and callback is not None:
+            await self.frame.run_lua("function on_tap();frame.bluetooth.send('\\x"+(_FRAME_TAP_PREFIX.hex(':').replace(':','\\x'))+"');end;frame.imu.tap_callback(on_tap)", checked=True)
+        elif lua_script is not None and callback is None:
+            await self.frame.run_lua("function on_tap();"+lua_script+";end;frame.imu.tap_callback(on_tap)", checked=True)
+        else:
+            await self.frame.run_lua("frame.imu.tap_callback(nil)", checked=False)
+    
+    async def wait_for_tap(self) -> None:
+        """Wait for the Frame to be tapped before continuing."""
+        self._waiting_on_tap = asyncio.Event()
+        await self.run_on_tap(callback= lambda : self._waiting_on_tap.set())
+        await self._waiting_on_tap.wait()
+        await self.run_on_tap(callback=None)

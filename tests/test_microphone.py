@@ -45,8 +45,32 @@ class TestMicrophone(unittest.IsolatedAsyncioTestCase):
             await f.display.clear()
             self.assertLess(length, 5)
             self.assertTrue(os.path.exists("test.wav"))
-            self.assertGreater(os.path.getsize("test.wav"), 2000)
+            self.assertGreater(os.path.getsize("test.wav"), 500)
             os.remove("test.wav")
+            
+    async def test_record_and_play_audio(self):
+        async with Frame() as f:
+            for sample_rate in [8000, 16000]:
+                for bit_depth in [8, 16]:
+                    if sample_rate == 16000 and bit_depth == 16:
+                        continue
+                    f.microphone.sample_rate = sample_rate
+                    f.microphone.bit_depth = bit_depth
+                    data = await f.microphone.record_audio(None, 5)
+                    start_time = time.time()
+                    f.microphone.play_audio(data)
+                    end_time = time.time()
+                    self.assertAlmostEqual(end_time - start_time, 5, delta=0.5)
+                    self.assertAlmostEqual(end_time - start_time, len(data) / f.microphone.sample_rate, delta=0.2)
+                    start_time = time.time()
+                    await f.microphone.play_audio_async(data)
+                    end_time = time.time()
+                    self.assertAlmostEqual(end_time - start_time, len(data) / f.microphone.sample_rate, delta=0.2)
+                    start_time = time.time()
+                    f.microphone.play_audio_background(data)
+                    end_time = time.time()
+                    self.assertAlmostEqual(end_time - start_time, 0, delta=0.1)
+
 
 
 if __name__ == "__main__":

@@ -7,6 +7,8 @@ import simpleaudio
 import time
 import wave
 
+_FRAME_MIC_DATA_PREFIX = b'\x05'
+
 if TYPE_CHECKING:
     from .frame import Frame
 
@@ -103,7 +105,7 @@ class Microphone:
             raise ValueError("Sample rate must be 8000 or 16000")
         self._sample_rate = value
 
-    async def record_audio(self, silence_cutoff_length_in_seconds: Optional[int] = 3, max_length_in_seconds: Optional[int] = 30) -> np.ndarray:
+    async def record_audio(self, silence_cutoff_length_in_seconds: Optional[int] = 3, max_length_in_seconds: int = 30) -> np.ndarray:
         """
         Record audio from the microphone.
 
@@ -117,7 +119,7 @@ class Microphone:
         await self.frame.run_lua("frame.microphone.stop()", checked=False)
 
         self._audio_buffer = np.array([], dtype=np.int8 if self.bit_depth == 8 else np.int16)
-        self.frame.bluetooth.data_response_handler = self._audio_buffer_handler
+        self.frame.bluetooth.register_data_response_handler(_FRAME_MIC_DATA_PREFIX, self._audio_buffer_handler)
         self._audio_finished_event.clear()
         
         bytes_per_second = self.sample_rate * (self.bit_depth // 8)
@@ -138,8 +140,8 @@ class Microphone:
         except asyncio.TimeoutError:
             pass
         if self.frame.bluetooth.print_debugging:
-            print(f"\nAudio recording finished with {len(self._audio_buffer)*self._seconds_per_packet} seconds of audio")
-        self.frame.bluetooth.data_response_handler = None
+            print(f"\nAudio recording finished with {len(self._audio_buffer)/self._sample_rate:1.1f} seconds of audio")
+        self.frame.bluetooth.register_data_response_handler(_FRAME_MIC_DATA_PREFIX, None)
         await self.frame.bluetooth.send_break_signal()
         await self.frame.run_lua("frame.microphone.stop()")
         
@@ -148,7 +150,7 @@ class Microphone:
         else:
             return self._audio_buffer
     
-    async def save_audio_file(self, filename: str, silence_cutoff_length_in_seconds: int = 3, max_length_in_seconds: int = 60) -> float:
+    async def save_audio_file(self, filename: str, silence_cutoff_length_in_seconds: int = 3, max_length_in_seconds: int = 30) -> float:
         """
         Save the recorded audio to a file. Regardless of any filename extension, the file will be saved as a PCM wav file.
 
@@ -193,12 +195,8 @@ class Microphone:
         """
         if self._audio_buffer is None:
             return
-        if data[0] != 5:
-            # we expect the `microphoneRecordAndSend()` Lua function to send a 5 as the first byte of microphone data
-            # if we receive anything else, we assume it's not microphone data and ignore it
-            return
         
-        audio_data = self._convert_bytes_to_audio_data(data[1:], self.bit_depth)
+        audio_data = self._convert_bytes_to_audio_data(data, self.bit_depth)
         self._audio_buffer = np.concatenate((self._audio_buffer, audio_data))
         
         if self._silence_cutoff_length_in_seconds is not None:
