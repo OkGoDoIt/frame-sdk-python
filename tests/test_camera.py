@@ -4,8 +4,7 @@ import asyncio
 import sys
 import time
 
-sys.path.append("..")
-from src.frame_sdk import Frame
+from frame_sdk import Frame
 
 class TestCamera(unittest.IsolatedAsyncioTestCase):
     async def test_get_photo(self):

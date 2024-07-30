@@ -2,8 +2,7 @@ import unittest
 import asyncio
 import sys
 
-sys.path.append("..")
-from src.frame_sdk import Frame
+from frame_sdk import Frame
 
 class TestFiles(unittest.IsolatedAsyncioTestCase):
     async def test_write_long_file(self):

@@ -2,8 +2,7 @@ import unittest
 import asyncio
 import sys
 
-sys.path.append("..")
-from src.frame_sdk import Bluetooth, Frame
+from frame_sdk import Bluetooth, Frame
 
 class TestBluetooth(unittest.IsolatedAsyncioTestCase):
     async def test_connect_disconnect(self):
@@ -18,38 +17,32 @@ class TestBluetooth(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(b.is_connected())
 
     async def test_send_lua(self):
-        b = Bluetooth()
-        await b.connect()
+        async with Frame() as f:
 
-        self.assertEqual(await b.send_lua("print('hi')", await_print=True), "hi")
+            self.assertEqual(await f.run_lua("print('hi')", await_print=True), "hi")
 
-        self.assertIsNone(await b.send_lua("print('hi')"))
-        await asyncio.sleep(0.1)
+            self.assertIsNone(await f.run_lua("print('hi')"))
+            await asyncio.sleep(0.1)
 
-        with self.assertRaises(Exception):
-            await b.send_lua("a = 1", await_print=True)
+            with self.assertRaises(Exception):
+                await f.run_lua("a = 1", await_print=True, timeout=1)
 
-        await b.disconnect()
 
     async def test_send_data(self):
-        b = Bluetooth()
-        await b.connect()
+        async with Frame() as f:
+            await f.run_lua(
+                "frame.bluetooth.receive_callback((function(d)frame.bluetooth.send(d)end))"
+            )
 
-        await b.send_lua(
-            "frame.bluetooth.receive_callback((function(d)frame.bluetooth.send(d)end))"
-        )
+            self.assertEqual(await f.bluetooth.send_data(b"test", await_data=True), b"test")
 
-        self.assertEqual(await b.send_data(b"test", await_data=True), b"test")
+            self.assertIsNone(await f.bluetooth.send_data(b"test"))
+            await asyncio.sleep(0.1)
 
-        self.assertIsNone(await b.send_data(b"test"))
-        await asyncio.sleep(0.1)
+            await f.run_lua("frame.bluetooth.receive_callback(nil)")
 
-        await b.send_lua("frame.bluetooth.receive_callback(nil)")
-
-        with self.assertRaises(Exception):
-            await b.send_data(b"test", await_data=True)
-
-        await b.disconnect()
+            with self.assertRaises(Exception):
+                await f.bluetooth.send_data(b"test", await_data=True)
 
     async def test_mtu(self):
         b = Bluetooth()

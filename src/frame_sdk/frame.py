@@ -16,13 +16,8 @@ _FRAME_WAKE_PREFIX = b'\x03'
 class Frame:
     """Represents a Frame device. Instantiate this class via `async with Frame() as f:`."""
     
-    bluetooth: Bluetooth = None
-    files: Files = None
-    camera: Camera = None
-    display: Display = None
-    microphone: Microphone = None
-    motion: Motion = None
-    
+    debug_on_new_connection: bool = False
+
     def __init__(self):
         """Initialize the Frame device and its components."""
         self.bluetooth = Bluetooth()
@@ -46,6 +41,7 @@ class Frame:
         """Ensure the Frame is connected, establishing a connection if not."""
         if not self.bluetooth.is_connected():
             await self.bluetooth.connect()
+            self.bluetooth.print_debugging = Frame.debug_on_new_connection
             await self.bluetooth.send_break_signal()
             await self.inject_all_library_functions()
             await self.run_lua(f"frame.time.utc({int(time.time())});frame.time.zone('{time.strftime('%z')[:3]}:{time.strftime('%z')[3:]}')", checked=True)

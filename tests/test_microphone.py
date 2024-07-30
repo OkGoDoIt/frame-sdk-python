@@ -5,8 +5,7 @@ import sys
 import time
 import numpy as np
 
-sys.path.append("..")
-from src.frame_sdk import Frame
+from frame_sdk import Frame
 
 class TestMicrophone(unittest.IsolatedAsyncioTestCase):
     async def test_basic_audio_recording(self):

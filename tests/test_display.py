@@ -1,11 +1,9 @@
-from src.frame_sdk import Frame
 import unittest
 import asyncio
 import sys
 import time
 
-sys.path.append("..")
-
+from frame_sdk import Frame
 
 class TestDisplay(unittest.IsolatedAsyncioTestCase):
     async def test_write_text(self):

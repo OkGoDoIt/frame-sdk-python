@@ -127,7 +127,7 @@ async def main():
         # write the battery level
         await f.display.write_text(f"{batteryPercent}%", 640-8-batteryWidth, 40, batteryWidth, batteryHeight, Alignment.MIDDLE_CENTER)
         # write the time and date in the center of the screen
-        await f.display.write_text(datetime.datetime.now().strftime("%-I:%M %p\n%a, %B %d, %Y"), align=Alignment.MIDDLE_CENTER)
+        await f.display.write_text(datetime.datetime.now().strftime("%#I:%M %p\n%a, %B %d, %Y").lstrip("0"), align=Alignment.MIDDLE_CENTER)
         # now show what we've been drawing to the buffer
         await f.display.show()
 

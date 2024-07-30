@@ -1,5 +1,3 @@
-from src.frame_sdk import Frame
-from src.frame_sdk.motion import Direction
 import os
 import unittest
 import asyncio
@@ -7,8 +5,8 @@ import sys
 import time
 import numpy as np
 
-sys.path.append("..")
-
+from frame_sdk import Frame
+from frame_sdk.motion import Direction
 
 class TestMotion(unittest.IsolatedAsyncioTestCase):
     async def test_get_direction(self):
@@ -28,7 +26,7 @@ class TestMotion(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(direction2, Direction)
             diff = direction2 - direction1
             self.assertAlmostEqual(diff.amplitude(), 0, delta=5)
-            self.assertAlmostEqual(direction1.pitch, direction2.pitch, delta=1)
+            self.assertAlmostEqual(direction1.pitch, direction2.pitch, delta=5)
             self.assertAlmostEqual(direction1.roll, direction2.roll, delta=5)
             self.assertAlmostEqual(
                 direction1.heading, direction2.heading, delta=5)

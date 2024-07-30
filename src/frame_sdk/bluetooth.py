@@ -331,6 +331,9 @@ class Bluetooth:
         Returns:
             Optional[str]: The print response if `await_print` is True, otherwise None.
         """
+        if await_print:
+            self._print_response_event.clear()
+            
         await self._transmit(string.encode())
 
         if await_print:
@@ -349,12 +352,12 @@ class Bluetooth:
         if timeout is None:
             timeout = self._default_timeout
 
-        self._print_response_event.clear()
-
         try:
             await asyncio.wait_for(self._print_response_event.wait(), timeout)
         except asyncio.TimeoutError:
             raise Exception(f"Frame didn't respond with printed data (from print() or prntLng()) within {timeout} seconds")
+
+        self._print_response_event.clear()
 
         return self._last_print_response
     
@@ -371,12 +374,13 @@ class Bluetooth:
         if timeout is None:
             timeout = self._default_timeout
 
-        self._data_response_event.clear()
-
         try:
             await asyncio.wait_for(self._data_response_event.wait(), timeout)
         except asyncio.TimeoutError:
             raise Exception(f"Frame didn't respond with data (from frame.bluetooth.send(data)) within {timeout} seconds")
+        
+        self._data_response_event.clear()
+
         return self._last_data_response
 
     async def send_data(self, data: bytearray, await_data: bool = False) -> Optional[bytes]:
@@ -394,6 +398,9 @@ class Bluetooth:
         Returns:
             Optional[bytes]: The data response if `await_data` is True, otherwise None.
         """
+        if await_data:
+            self._data_response_event.clear()
+
         await self._transmit(bytearray(b"\x01") + data)
 
         if await_data:
