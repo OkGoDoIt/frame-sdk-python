@@ -25,6 +25,7 @@ class Camera:
     def __init__(self, frame: "Frame"):
         """Initialize the Camera with a Frame instance."""
         self.frame = frame
+        self.is_awake = True
         
     @property
     def auto_process_photo(self) -> bool:
@@ -35,6 +36,7 @@ class Camera:
     def auto_process_photo(self, value: bool):
         """If true, the camera will automatically process the photo to correct rotation and add metadata."""
         self._auto_process_photo = value
+    
     
     async def take_photo(self, autofocus_seconds: Optional[int] = 3, quality: int = MEDIUM_QUALITY, autofocus_type: str = AUTOFOCUS_TYPE_AVERAGE) -> bytes:
         """Take a photo with the camera.
@@ -50,6 +52,10 @@ class Camera:
         Raises:
             Exception: If the photo capture fails.
         """
+        
+        if not self.is_awake:
+            await self.frame.run_lua("frame.camera.wake()", checked=True)
+            self.is_awake = True
         
         await self.frame.bluetooth.send_lua(f"cameraCaptureAndSend({quality},{autofocus_seconds or 'nil'},{autofocus_type})")
         image_buffer = await self.frame.bluetooth.wait_for_data()

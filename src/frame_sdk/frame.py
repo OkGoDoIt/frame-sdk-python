@@ -26,6 +26,8 @@ class Frame:
         self.display = Display(self)
         self.microphone = Microphone(self)
         self.motion = Motion(self)
+        self._lua_on_wake = None
+        self._callback_on_wake = None
         
     async def __aenter__(self) -> 'Frame':
         """Enter the asynchronous context manager."""
@@ -44,7 +46,7 @@ class Frame:
             self.bluetooth.print_debugging = Frame.debug_on_new_connection
             await self.bluetooth.send_break_signal()
             await self.inject_all_library_functions()
-            await self.run_lua(f"frame.time.utc({int(time.time())});frame.time.zone('{time.strftime('%z')[:3]}:{time.strftime('%z')[3:]}')", checked=True)
+            await self.run_lua(f"is_awake=true;frame.time.utc({int(time.time())});frame.time.zone('{time.strftime('%z')[:3]}:{time.strftime('%z')[3:]}')", checked=True)
 
     async def evaluate(self, lua_expression: str) -> str:
         """Evaluates a Lua expression on the device and returns the result.
@@ -136,17 +138,35 @@ class Frame:
         response = await self.bluetooth.send_lua("print(frame.battery_level())", await_print=True)
         return int(float(response))
     
-    async def sleep(self, seconds: Optional[float]) -> None:
-        """Sleeps for a given number of seconds. If no argument is given, Frame will go to sleep until a tap gesture wakes it up.
+    async def delay(self, seconds: float) -> None:
+        """Delays execution on Frame for a given number of seconds.  Technically this sends a sleep command, but it doesn't actually change the power mode.  This function does not block, returning immediately.
         
         Args:
-            seconds (Optional[float]): The number of seconds to sleep.  This can be a decimal number such as 1.25.
+            seconds (float): The number of seconds to sleep.
+        """
+        if seconds <= 0:
+            raise ValueError("Delay seconds must be a positive number.")
+        await self.ensure_connected()
+        await self.run_lua(f"frame.sleep({seconds})")
+    
+    async def sleep(self, deep_sleep: bool = False) -> None:
+        """Puts the Frame into sleep mode.  There are two modes: normal and deep.
+        Normal sleep mode can still receive bluetooth data, and is essentially the same as clearing the display and putting the camera in low power mode.  The Frame will retain the time and date, and any functions and variables will stay in memory.
+        Deep sleep mode saves additional power, but has more limitations.  The Frame will not retain the time and date, and any functions and variables will not stay in memory.  Blue data will not be received.  The only way to wake the Frame from deep sleep is to tap it.
+        The difference in power usage is fairly low, so it's often best to use normal sleep mode unless you need the extra power savings.
         """
         await self.ensure_connected()
-        if seconds is None:
+        if deep_sleep:
             await self.run_lua("frame.sleep()")
         else:
-            await self.run_lua(f"frame.sleep({seconds})")
+            if self._lua_on_wake is not None or self._callback_on_wake is not None:
+                run_on_wake = self._lua_on_wake or ""
+                if self._callback_on_wake is not None:
+                    run_on_wake = "frame.bluetooth.send('\\x"+(_FRAME_WAKE_PREFIX.hex(':').replace(':','\\x'))+"');"+run_on_wake
+                run_on_wake = "if not is_awake then;is_awake=true;"+run_on_wake+";end"
+                self.motion.run_on_tap(run_on_wake)
+            await self.run_lua("frame.display.text(' ',1,1);frame.display.show();frame.camera.sleep()", checked=True)
+            self.camera.is_awake = False
             
     async def stay_awake(self, value: bool) -> None:
         """Prevents Frame from going to sleep while it's docked onto the charging cradle.
@@ -228,6 +248,8 @@ class Frame:
         """
         Runs a Lua function when the device wakes up from sleep.  Can include lua code to be run on Frame upon wake and/or a python callback to be run locally upon wake.
         """
+        self._lua_on_wake = lua_script
+        self._callback_on_wake = callback
 
         if callback is not None:
             self.bluetooth.register_data_response_handler(_FRAME_WAKE_PREFIX, lambda data: callback())
@@ -235,10 +257,10 @@ class Frame:
             self.bluetooth.register_data_response_handler(_FRAME_WAKE_PREFIX, None)
         
         if lua_script is not None and callback is not None:
-            await self.files.write_file("main.lua",("frame.bluetooth.send('\\x"+(_FRAME_WAKE_PREFIX.hex(':').replace(':','\\x'))+"');\n"+lua_script).encode(), checked=True)
+            await self.files.write_file("main.lua",("is_awake=true;frame.bluetooth.send('\\x"+(_FRAME_WAKE_PREFIX.hex(':').replace(':','\\x'))+"');\n"+lua_script).encode(), checked=True)
         elif lua_script is None and callback is not None:
-            await self.files.write_file("main.lua",("frame.bluetooth.send('\\x"+(_FRAME_WAKE_PREFIX.hex(':').replace(':','\\x'))+"')").encode(), checked=True)
+            await self.files.write_file("main.lua",("is_awake=true;frame.bluetooth.send('\\x"+(_FRAME_WAKE_PREFIX.hex(':').replace(':','\\x'))+"')").encode(), checked=True)
         elif lua_script is not None and callback is None:
-            await self.files.write_file("main.lua",lua_script.encode(), checked=True)
+            await self.files.write_file("main.lua","is_awake=true;"+lua_script.encode(), checked=True)
         else:
-            await self.files.delete_file("main.lua")
+            await self.files.write_file("main.lua",b"is_awake=true", checked=True)
