@@ -7,7 +7,7 @@ import simpleaudio
 import time
 import wave
 
-_FRAME_MIC_DATA_PREFIX = b'\x05'
+from .bluetooth import FrameDataTypePrefixes
 
 if TYPE_CHECKING:
     from .frame import Frame
@@ -119,7 +119,7 @@ class Microphone:
         await self.frame.run_lua("frame.microphone.stop()", checked=False)
 
         self._audio_buffer = np.array([], dtype=np.int8 if self.bit_depth == 8 else np.int16)
-        self.frame.bluetooth.register_data_response_handler(_FRAME_MIC_DATA_PREFIX, self._audio_buffer_handler)
+        self.frame.bluetooth.register_data_response_handler(FrameDataTypePrefixes.MIC_DATA, self._audio_buffer_handler)
         self._audio_finished_event.clear()
         
         bytes_per_second = self.sample_rate * (self.bit_depth // 8)
@@ -141,14 +141,11 @@ class Microphone:
             pass
         if self.frame.bluetooth.print_debugging:
             print(f"\nAudio recording finished with {len(self._audio_buffer)/self._sample_rate:1.1f} seconds of audio")
-        self.frame.bluetooth.register_data_response_handler(_FRAME_MIC_DATA_PREFIX, None)
+        self.frame.bluetooth.register_data_response_handler(FrameDataTypePrefixes.MIC_DATA, None)
         await self.frame.bluetooth.send_break_signal()
         await self.frame.run_lua("frame.microphone.stop()")
         
-        if len(self._audio_buffer) > 1024:
-            return self._audio_buffer[1024:]
-        else:
-            return self._audio_buffer
+        return self._audio_buffer
     
     async def save_audio_file(self, filename: str, silence_cutoff_length_in_seconds: int = 3, max_length_in_seconds: int = 30) -> float:
         """

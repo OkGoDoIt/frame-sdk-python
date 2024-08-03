@@ -221,33 +221,53 @@ char_width_mapping = {
     0x0F0010: 70
 }
 
-char_spacing = 4
+from enum import Enum
+
+class PaletteColors(Enum):
+    VOID = 0
+    WHITE = 1
+    GRAY = 2
+    RED = 3
+    PINK = 4
+    DARKBROWN = 5
+    BROWN = 6
+    ORANGE = 7
+    YELLOW = 8
+    DARKGREEN = 9
+    GREEN = 10
+    LIGHTGREEN = 11
+    NIGHTBLUE = 12
+    SEABLUE = 13
+    SKYBLUE = 14
+    CLOUDBLUE = 15
+
 
 class Display:
     """Displays text and graphics on the Frame display."""
 
     frame: "Frame" = None
 
-    palette = [
-        (0, 0, 0),
-        (157, 157, 157),
-        (255, 255, 255),
-        (190, 38, 51),
-        (224, 111, 139),
-        (73, 60, 43),
-        (164, 100, 34),
-        (235, 137, 49),
-        (247, 226, 107),
-        (47, 72, 78),
-        (68, 137, 26),
-        (163, 206, 39),
-        (27, 38, 50),
-        (0, 87, 132),
-        (49, 162, 242),
-        (178, 220, 239),
-    ]
+    color_palette_mapping = {
+        PaletteColors.VOID: (0, 0, 0),
+        PaletteColors.WHITE: (255, 255, 255),
+        PaletteColors.GRAY: (157, 157, 157),
+        PaletteColors.RED: (190, 38, 51),
+        PaletteColors.PINK: (224, 111, 139),
+        PaletteColors.DARKBROWN: (73, 60, 43),
+        PaletteColors.BROWN: (164, 100, 34),
+        PaletteColors.ORANGE: (235, 137, 49),
+        PaletteColors.YELLOW: (247, 226, 107),
+        PaletteColors.DARKGREEN: (47, 72, 78),
+        PaletteColors.GREEN: (68, 137, 26),
+        PaletteColors.LIGHTGREEN: (163, 206, 39),
+        PaletteColors.NIGHTBLUE: (27, 38, 50),
+        PaletteColors.SEABLUE: (0, 87, 132),
+        PaletteColors.SKYBLUE: (49, 162, 242),
+        PaletteColors.CLOUDBLUE: (178, 220, 239),
+    }
 
     _line_height = 60
+    _char_spacing = 4
 
     @property
     def line_height(self) -> int:
@@ -260,6 +280,18 @@ class Display:
         if value < 0:
             raise ValueError("line_height must be a non-negative integer")
         self._line_height = value
+
+    @property
+    def char_spacing(self) -> int:
+        """Gets the spacing between characters in pixels. It is 4 by default."""
+        return self._char_spacing
+
+    @char_spacing.setter
+    def char_spacing(self, value: int):
+        """Sets the spacing between characters in pixels."""
+        if value < 0:
+            raise ValueError("char_spacing must be a non-negative integer")
+        self._char_spacing = value
 
     def __init__(self, frame: "Frame"):
         """
@@ -294,7 +326,7 @@ class Display:
         }
         return alignments.get(align, ("left", "top"))
 
-    async def show_text(self, text: str, x: int = 1, y: int = 1, max_width: Optional[int] = 640, max_height: Optional[int] = None, align: Alignment = Alignment.TOP_LEFT):
+    async def show_text(self, text: str, x: int = 1, y: int = 1, max_width: Optional[int] = 640, max_height: Optional[int] = None, align: Alignment = Alignment.TOP_LEFT, color: PaletteColors = PaletteColors.WHITE):
         """
         Show text on the display.
 
@@ -306,10 +338,10 @@ class Display:
             max_height (Optional[int]): The maximum height for the text bounding box. If text is taller than this, it will be cut off at that height. Also useful for vertical alignment. Set to the full height of the display by default (400px).
             align (Alignment): The alignment of the text, both horizontally if a max_width is provided, and vertically if a max_height is provided. Can be any value in frame.display.Alignment, such as Alignment.TOP_LEFT, Alignment.MIDDLE_CENTER, etc.
         """
-        await self.write_text(text, x, y, max_width, max_height, align)
+        await self.write_text(text, x, y, max_width, max_height, align, color)
         await self.show()
 
-    async def write_text(self, text: str, x: int = 1, y: int = 1, max_width: Optional[int] = 640, max_height: Optional[int] = None, align: Alignment = Alignment.TOP_LEFT):
+    async def write_text(self, text: str, x: int = 1, y: int = 1, max_width: Optional[int] = 640, max_height: Optional[int] = None, align: Alignment = Alignment.TOP_LEFT, color: PaletteColors = PaletteColors.WHITE):
         """
         Write text to the display buffer.
 
@@ -320,6 +352,7 @@ class Display:
             max_width (Optional[int]): The maximum width for the text bounding box. If text is wider than this, it will be word-wrapped onto multiple lines automatically. Set to the full width of the display by default (640px), but can be overridden with None/null to disable word-wrapping.
             max_height (Optional[int]): The maximum height for the text bounding box. If text is taller than this, it will be cut off at that height. Also useful for vertical alignment. Set to the full height of the display by default (400px).
             align (Alignment): The alignment of the text, both horizontally if a max_width is provided, and vertically if a max_height is provided. Can be any value in frame.display.Alignment, such as Alignment.TOP_LEFT, Alignment.MIDDLE_CENTER, etc.
+            color (Palette_Colors): The color of the text. Defaults to Palette_Colors.WHITE.
         """
         if max_width is not None:
             text = self.wrap_text(text, max_width)
@@ -339,12 +372,23 @@ class Display:
                 this_line_x = x + (max_width if max_width is not None else (640-x)) // 2 - self.get_text_width(line) // 2
             elif horizontal_align == "right":
                 this_line_x = x + (max_width if max_width is not None else (640-x)) - self.get_text_width(line)
-            await self.frame.run_lua(f"frame.display.text(\"{self.frame.escape_lua_string(line)}\",{this_line_x},{y+vertical_offset})", checked=True)
+            lua_to_send = f"frame.display.text(\"{self.frame.escape_lua_string(line)}\",{this_line_x},{y+vertical_offset}"
+            if self.char_spacing != 4 or color != PaletteColors.WHITE:
+                lua_to_send += ',{'
+                if self.char_spacing != 4:
+                    lua_to_send += f'spacing={self.char_spacing}'
+                if self.char_spacing != 4 and color != PaletteColors.WHITE:
+                    lua_to_send += ','
+                if color != PaletteColors.WHITE:
+                    lua_to_send += f'color="{color.name}"'
+                lua_to_send += '}'
+            lua_to_send += ')'
+            await self.frame.run_lua(lua_to_send, checked=True)
             y += self.line_height
             if max_height is not None and y > max_height or y+vertical_offset > 640:
                 break
             
-    async def scroll_text(self, text: str, lines_per_frame: int = 5, delay: float = 0.12):
+    async def scroll_text(self, text: str, lines_per_frame: int = 5, delay: float = 0.12, color: PaletteColors = PaletteColors.WHITE):
         """
         Scroll text vertically on the display.
 
@@ -359,7 +403,7 @@ class Display:
         if total_height < 400:
             await self.write_text(text)
             return
-        await self.frame.run_lua(f"scrollText(\"{self.frame.escape_lua_string(text)}\",{self.line_height},{total_height},{lines_per_frame},{delay})",checked=True,timeout=total_height/lines_per_frame*(delay+0.1)+5)
+        await self.frame.run_lua(f"scrollText(\"{self.frame.escape_lua_string(text)}\",{self.line_height},{total_height},{lines_per_frame},{delay},'{color.name}',{self.char_spacing})",checked=True,timeout=total_height/lines_per_frame*(delay+0.1)+5)
 
     def wrap_text(self, text: str, max_width: int) -> str:
         """
@@ -421,7 +465,7 @@ class Display:
         """
         width = 0
         for char in text:
-            width += char_width_mapping.get(ord(char), 25) + char_spacing
+            width += char_width_mapping.get(ord(char), 25) + self.char_spacing
         return width
 
     async def show(self):
@@ -434,28 +478,32 @@ class Display:
         await self.frame.run_lua("frame.display.bitmap(1,1,4,2,15,\"\\xFF\")")
         await self.show()
 
-    async def set_palette(self, index: int, color: tuple[int, int, int]):
+    async def set_palette(self, paletteIndex: PaletteColors, rgb_color: tuple[int, int, int]):
         """
         Sets a color in the display palette.
 
         Args:
-            index (int): The index of the color to set.
-            color (tuple[int, int, int]): The RGB color tuple.
+            paletteIndex (PaletteColors): The PaletteColor to set.
+            rgb_color (tuple[int, int, int]): The RGB color tuple.
 
         Raises:
             ValueError: If the index is out of range.
-            NotImplementedError: If the function is not yet implemented in the Frame firmware.
         """
-        raise NotImplementedError(
-            "assign_color is not yet working in the Frame firmware")
-        if index == 16:
-            index = 0
-        if index < 0 or index > 15:
-            raise ValueError("Index out of range, must be between 0 and 15")
-        self.palette[index] = color
-        await self.frame.run_lua(f"frame.display.assign_color({index+1},{color[0]},{color[1]},{color[2]})", checked=True)
+        if isinstance(paletteIndex, int):
+            paletteIndex = PaletteColors(paletteIndex % 16)
 
-    async def draw_rect(self, x: int, y: int, w: int, h: int, color: int = 1):
+        color = tuple(max(0, min(255, c)) for c in rgb_color)
+        self.palette[paletteIndex] = color
+        await self.frame.run_lua(f"frame.display.assign_color({paletteIndex.name},{color[0]},{color[1]},{color[2]})", checked=True)
+
+    def _draw_rect_lua(self, x: int, y: int, w: int, h: int, color: PaletteColors):
+        if isinstance(color, PaletteColors):
+            color = color.value
+
+        w = w // 8 * 8
+        return f"frame.display.bitmap({x},{y},{w},2,{color},string.rep(\"\\xFF\",{(w//8)*h}))"
+
+    async def draw_rect(self, x: int, y: int, w: int, h: int, color: PaletteColors = PaletteColors.WHITE):
         """
         Draws a filled rectangle on the display.
 
@@ -464,12 +512,15 @@ class Display:
             y (int): The y position of the upper-left corner of the rectangle.
             w (int): The width of the rectangle.
             h (int): The height of the rectangle.
-            color (int): The color of the rectangle.
+            color (PaletteColors): The color of the rectangle.
         """
-        w = w // 8 * 8
-        await self.frame.run_lua(f"frame.display.bitmap({x},{y},{w},2,{color},string.rep(\"\\xFF\",{(w//8)*h}))")
+        if isinstance(color, PaletteColors):
+            color = color.value
 
-    async def draw_rect_filled(self, x: int, y: int, w: int, h: int, border_width: int, border_color: int, fill_color: int):
+        w = w // 8 * 8
+        await self.frame.run_lua(self._draw_rect_lua(x, y, w, h, color))
+
+    async def draw_rect_filled(self, x: int, y: int, w: int, h: int, border_width: int, border_color: PaletteColors, fill_color: PaletteColors):
         """
         Draws a filled rectangle with a border on the display.
 
@@ -479,9 +530,10 @@ class Display:
             w (int): The width of the rectangle.
             h (int): The height of the rectangle.
             border_width (int): The width of the border in pixels.
-            border_color (int): The color of the border.
-            fill_color (int): The color of the fill.
+            border_color (PaletteColors): The color of the border.
+            fill_color (PaletteColors): The color of the fill.
         """
+
         w = w // 8 * 8
         if border_width > 0:
             border_width = border_width // 8 * 8
@@ -492,6 +544,7 @@ class Display:
             return
 
         # draw entire rectangle as border color
-        await self.draw_rect(x, y, w, h, border_color)
+        lua_to_send = self._draw_rect_lua(x, y, w, h, border_color)
         # draw the inside rectangle
-        await self.draw_rect(x+border_width, y+border_width, w-border_width*2, h-border_width*2, fill_color)
+        lua_to_send += self._draw_rect_lua(x+border_width, y+border_width, w-border_width*2, h-border_width*2, fill_color)
+        await self.frame.run_lua(lua_to_send, checked=True)

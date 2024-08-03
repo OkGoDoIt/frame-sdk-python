@@ -3,7 +3,7 @@ import math
 from typing import Awaitable, Callable, Optional, TYPE_CHECKING, Tuple
 import asyncio
 
-_FRAME_TAP_PREFIX = b'\x04'
+from .bluetooth import FrameDataTypePrefixes
 
 if TYPE_CHECKING:
     from .frame import Frame
@@ -173,14 +173,14 @@ class Motion:
         """Run a callback when the Frame is tapped.  Can include lua code to be run on Frame upon tap and/or a python callback to be run locally upon tap."""
         
         if callback is not None:
-            self.frame.bluetooth.register_data_response_handler(_FRAME_TAP_PREFIX, callback)
+            self.frame.bluetooth.register_data_response_handler(FrameDataTypePrefixes.TAP, callback)
         else:
-            self.frame.bluetooth.register_data_response_handler(_FRAME_TAP_PREFIX, None)
+            self.frame.bluetooth.register_data_response_handler(FrameDataTypePrefixes.TAP, None)
         
         if lua_script is not None and callback is not None:
-            await self.frame.run_lua("function on_tap();frame.bluetooth.send('\\x"+(_FRAME_TAP_PREFIX.hex(':').replace(':','\\x'))+"');"+lua_script+";end;frame.imu.tap_callback(on_tap)", checked=True)
+            await self.frame.run_lua("function on_tap();frame.bluetooth.send('\\x"+FrameDataTypePrefixes.TAP.value_as_hex+"');"+lua_script+";end;frame.imu.tap_callback(on_tap)", checked=True)
         elif lua_script is None and callback is not None:
-            await self.frame.run_lua("function on_tap();frame.bluetooth.send('\\x"+(_FRAME_TAP_PREFIX.hex(':').replace(':','\\x'))+"');end;frame.imu.tap_callback(on_tap)", checked=True)
+            await self.frame.run_lua("function on_tap();frame.bluetooth.send('\\x"+FrameDataTypePrefixes.TAP.value_as_hex+"');end;frame.imu.tap_callback(on_tap)", checked=True)
         elif lua_script is not None and callback is None:
             await self.frame.run_lua("function on_tap();"+lua_script+";end;frame.imu.tap_callback(on_tap)", checked=True)
         else:

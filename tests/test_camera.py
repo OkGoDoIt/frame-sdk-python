@@ -5,6 +5,7 @@ import sys
 import time
 
 from frame_sdk import Frame
+from frame_sdk.camera import AutofocusType, Quality
 
 class TestCamera(unittest.IsolatedAsyncioTestCase):
     async def test_get_photo(self):
@@ -38,7 +39,7 @@ class TestCamera(unittest.IsolatedAsyncioTestCase):
             timeToTakePhotoWithoutAutoFocus = endTime - startTime
 
             startTime = time.time()
-            photo = await f.camera.take_photo(autofocus_seconds=1, autofocus_type=f.camera.AUTOFOCUS_TYPE_SPOT)
+            photo = await f.camera.take_photo(autofocus_seconds=1, autofocus_type=AutofocusType.SPOT)
             endTime = time.time()
             self.assertGreater(len(photo), 2000)
             timeToTakePhotoWithAutoFocus1Sec = endTime - startTime
@@ -46,7 +47,7 @@ class TestCamera(unittest.IsolatedAsyncioTestCase):
             self.assertGreater(timeToTakePhotoWithAutoFocus1Sec, timeToTakePhotoWithoutAutoFocus)
             
             startTime = time.time()
-            photo = await f.camera.take_photo(autofocus_seconds=3, autofocus_type=f.camera.AUTOFOCUS_TYPE_CENTER_WEIGHTED)
+            photo = await f.camera.take_photo(autofocus_seconds=3, autofocus_type=AutofocusType.CENTER_WEIGHTED)
             endTime = time.time()
             self.assertGreater(len(photo), 2000)
             timeToTakePhotoWithAutoFocus3Sec = endTime - startTime
@@ -58,15 +59,15 @@ class TestCamera(unittest.IsolatedAsyncioTestCase):
         Test taking a photo with various quality options
         """
         async with Frame() as f:
-            photo = await f.camera.take_photo(quality=f.camera.LOW_QUALITY)
+            photo = await f.camera.take_photo(quality=Quality.LOW)
             low_quality_size = len(photo)
             self.assertGreater(low_quality_size, 2000)
 
-            photo = await f.camera.take_photo(quality=f.camera.MEDIUM_QUALITY)
+            photo = await f.camera.take_photo(quality=Quality.MEDIUM)
             medium_quality_size = len(photo)
             self.assertGreater(medium_quality_size, low_quality_size)
             
-            photo = await f.camera.take_photo(quality=f.camera.HIGH_QUALITY)
+            photo = await f.camera.take_photo(quality=Quality.HIGH)
             high_quality_size = len(photo)
             self.assertGreater(high_quality_size, medium_quality_size)
 

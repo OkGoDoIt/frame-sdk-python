@@ -16,7 +16,7 @@ class TestMicrophone(unittest.IsolatedAsyncioTestCase):
             self.assertAlmostEqual(len(audio_data), 5 * 8000, delta=4000)
             self.assertLessEqual(np.max(audio_data), np.iinfo(np.int16).max)
             self.assertGreaterEqual(np.min(audio_data), np.iinfo(np.int16).min)
-            self.assertGreater(np.max(audio_data) - np.min(audio_data), 50)
+            self.assertGreater(abs(int(np.max(audio_data)) - int(np.min(audio_data))), 50)
             
             f.microphone.sample_rate = 16000
             f.microphone.bit_depth = 8
@@ -24,7 +24,7 @@ class TestMicrophone(unittest.IsolatedAsyncioTestCase):
             self.assertAlmostEqual(len(audio_data), 5 * 16000, delta=4000)
             self.assertLessEqual(np.max(audio_data), np.iinfo(np.int8).max)
             self.assertGreaterEqual(np.min(audio_data), np.iinfo(np.int8).min)
-            self.assertGreater(np.max(audio_data) - np.min(audio_data), 5)
+            self.assertGreater(abs(int(np.max(audio_data)) - int(np.min(audio_data))), 5)
     
     async def test_end_on_silence(self):
         async with Frame() as f:

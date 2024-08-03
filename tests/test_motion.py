@@ -35,10 +35,12 @@ class TestMotion(unittest.IsolatedAsyncioTestCase):
         async with Frame() as f:
             # no good way to actually test these being called, but let's at least make sure they don't throw errors
             await f.display.show_text("Testing tap, tap the Frame!")
-            await f.motion.run_on_tap(lua_script="print('Tapped!')")
             await f.motion.run_on_tap(callback=lambda: print("Tapped again!"))
             await f.motion.run_on_tap(lua_script="print('tap1')", callback=lambda: print("tap2"))
             await f.motion.run_on_tap(None, None)
+            await asyncio.sleep(1)
+            await f.motion.run_on_tap(lua_script="frame.display.text('tapped!',1,1);frame.display.show()")
+            
 
 
 if __name__ == "__main__":

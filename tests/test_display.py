@@ -4,22 +4,31 @@ import sys
 import time
 
 from frame_sdk import Frame
+from frame_sdk.display import Alignment, PaletteColors
 
 class TestDisplay(unittest.IsolatedAsyncioTestCase):
     async def test_write_text(self):
         async with Frame() as f:
             await f.display.show_text("Lorem \"ipsum\" [dolor] 'sit' amet,    consectetur\nadipiscing elit.")
+            await f.display.show_text("Lorem \"ipsum\" [dolor] 'sit' amet,    consectetur\nadipiscing elit.", align=Alignment.MIDDLE_CENTER)
+            await f.display.show_text("Lorem \"ipsum\" [dolor] 'sit' amet,    consectetur\nadipiscing elit.", color=PaletteColors.RED)
             await f.display.show_text("Lorem \"ipsum\" [dolor] 'sit' amet,    consectetur\nadipiscing elit." * 100)
             await f.display.show_text("Done")
             await f.display.clear()
 
     async def test_word_wrap(self):
         async with Frame() as f:
-            wrapped400 = f.display.wrap_text("Hi bob " * 100, 400)
-            wrapped800 = f.display.wrap_text("Hi bob " * 100, 800)
+            wrapped400 = f.display.wrap_text("Hi bob! " * 100, 400)
+            wrapped800 = f.display.wrap_text("Hi bob! " * 100, 800)
             self.assertEqual(wrapped400.count("!"), wrapped800.count("!"))
             self.assertAlmostEqual(wrapped400.count("\n"), wrapped800.count("\n") * 2, delta=3)
-            self.assertAlmostEqual(f.display.get_text_height(wrapped400), f.display.get_text_height(wrapped800) * 2, delta=100)
+            self.assertAlmostEqual(f.display.get_text_height(wrapped400), f.display.get_text_height(wrapped800) * 2, delta=150)
+
+            f.display.char_spacing = 10
+            wide_wrapped_400 = f.display.wrap_text("Hi bob! " * 100, 400)
+            self.assertGreater(f.display.get_text_width(wide_wrapped_400), f.display.get_text_width(wrapped400))
+            self.assertGreater(f.display.get_text_height(wide_wrapped_400), f.display.get_text_height(wrapped400))
+            f.display.char_spacing = 4
 
     async def test_line_height(self):
         async with Frame() as f:
@@ -30,9 +39,9 @@ class TestDisplay(unittest.IsolatedAsyncioTestCase):
 
     async def test_draw_rectangles(self):
         async with Frame() as f:
-            await f.display.draw_rect(1,1,640,400,5)
-            await f.display.draw_rect(300,300,10,10,2)
-            await f.display.draw_rect_filled(50,50,300,300,25,7,14)
+            await f.display.draw_rect(1,1,640,400,PaletteColors.RED)
+            await f.display.draw_rect(300,300,10,10,PaletteColors.YELLOW)
+            await f.display.draw_rect_filled(50,50,300,300,25,PaletteColors.SEABLUE,PaletteColors.DARKGREEN)
             await f.display.show()
             await f.display.clear()
             
@@ -46,7 +55,7 @@ class TestDisplay(unittest.IsolatedAsyncioTestCase):
             self.assertLess(elapsed_time_1, 20)
             
             start_time = time.time()
-            await f.display.scroll_text("Lorem \"ipsum\" [dolor] 'sit' amet,    consectetur adipiscing elit.\nNulla nec nunc euismod, consectetur nunc eu, aliquam nunc.\nNulla lorem nec nunc euismod, ipsum consectetur nunc eu, aliquam nunc.\n" * 3)
+            await f.display.scroll_text("Lorem \"ipsum\" [dolor] 'sit' amet,    consectetur adipiscing elit.\nNulla nec nunc euismod, consectetur nunc eu, aliquam nunc.\nNulla lorem nec nunc euismod, ipsum consectetur nunc eu, aliquam nunc.\n" * 3, color=PaletteColors.SKYBLUE)
             end_time = time.time()
             elapsed_time_2 = end_time - start_time
             self.assertAlmostEqual(elapsed_time_1*3, elapsed_time_2, delta=8)

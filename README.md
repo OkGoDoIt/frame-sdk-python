@@ -24,7 +24,8 @@ Here's a simple example of how to use the Frame SDK to display text, take a phot
 ```python
 import asyncio
 from frame_sdk import Frame
-from frame_sdk.display import Alignment
+from frame_sdk.display import Alignment, PaletteColors
+from frame_sdk.camera import Quality, AutofocusType
 import datetime
 
 async def main():
@@ -59,9 +60,9 @@ async def main():
         # take a photo and save to disk
         await f.display.show_text("Taking photo...", align=Alignment.MIDDLE_CENTER)
         await f.camera.save_photo("frame-test-photo.jpg")
-        await f.display.show_text("Photo saved!", align=Alignment.MIDDLE_CENTER)
+        await f.display.show_text("Photo saved!", align=Alignment.MIDDLE_CENTER, color=PaletteColors.GREEN)
         # or with more control
-        await f.camera.save_photo("frame-test-photo-2.jpg", autofocus_seconds=3, quality=f.camera.HIGH_QUALITY, autofocus_type=f.camera.AUTOFOCUS_TYPE_CENTER_WEIGHTED)
+        await f.camera.save_photo("frame-test-photo-2.jpg", autofocus_seconds=3, quality=Quality.HIGH, autofocus_type=AutofocusType.CENTER_WEIGHTED)
         # or get the raw bytes
         photo_bytes = await f.camera.take_photo(autofocus_seconds=1)
 
@@ -78,7 +79,7 @@ async def main():
         audio_data = await f.microphone.record_audio(max_length_in_seconds=10)
         await f.display.show_text(f"Playing back {len(audio_data) / f.microphone.sample_rate:01.1f} seconds of audio", align=Alignment.MIDDLE_CENTER)
         # you can play back the audio on your computer
-        f.microphone.play_audio(audio_data)
+        f.microphone.play_audio_background(audio_data)
         # or process it using other audio handling libraries, upload to a speech-to-text service, etc.
 
         print("Move around to track intensity of your motion")
@@ -101,7 +102,7 @@ async def main():
         for color in range(0, 16):
             tile_x = (color % 4)
             tile_y = (color // 4)
-            await f.display.draw_rect(tile_x*width+1, tile_y*height+1, width, height, color)
+            await f.display.draw_rect(tile_x*width+1, tile_y*height+1, width, height, PaletteColors(color))
             await f.display.write_text(f"{color}", tile_x*width+width//2+1, tile_y*height+height//2+1)
         await f.display.show()
 
@@ -114,14 +115,14 @@ async def main():
         # display battery indicator and time as a home screen
         batteryPercent = await f.get_battery_level()
         # select a battery fill color from the default palette based on level
-        color = 2 if batteryPercent < 20 else 6 if batteryPercent < 50 else 9
+        color = PaletteColors.RED if batteryPercent < 20 else PaletteColors.YELLOW if batteryPercent < 50 else PaletteColors.GREEN
         # specify the size of the battery indicator in the top-right
         batteryWidth = 150
         batteryHeight = 75
         # draw the endcap of the battery
-        await f.display.draw_rect(640-32,40 + batteryHeight//2-8, 32, 16, 1)
+        await f.display.draw_rect(640-32,40 + batteryHeight//2-8, 32, 16, PaletteColors.WHITE)
         # draw the battery outline
-        await f.display.draw_rect_filled(640-16-batteryWidth, 40-8, batteryWidth+16, batteryHeight+16, 8, 1, 15)
+        await f.display.draw_rect_filled(640-16-batteryWidth, 40-8, batteryWidth+16, batteryHeight+16, PaletteColors.WHITE, 1, 15)
         # fill the battery based on level
         await f.display.draw_rect(640-8-batteryWidth, 40, int(batteryWidth * 0.01 * batteryPercent), batteryHeight, color)
         # write the battery level
@@ -168,3 +169,5 @@ With a Frame device in range, run:
 ```sh
 python3 -m pytest tests/*
 ```
+
+Note that one of the audio playback tests fails on Windows.

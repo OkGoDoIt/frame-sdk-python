@@ -1,16 +1,24 @@
 import asyncio
 from typing import Optional, Callable, List, Tuple, Dict, Any
-
+from enum import Enum
 from bleak import BleakClient, BleakScanner, BleakError
 
 _FRAME_DATA_PREFIX = 1
-_FRAME_LONG_TEXT_PREFIX = 10
-_FRAME_LONG_TEXT_END_PREFIX = 11
-_FRAME_LONG_DATA_PREFIX = 1
-_FRAME_LONG_DATA_END_PREFIX = 2
 
-_FRAME_TAP_PREFIX = b'\x04'
-_FRAME_MIC_DATA_PREFIX = b'\x05'
+class FrameDataTypePrefixes(Enum):
+    LONG_DATA = 0x01
+    LONG_DATA_END = 0x02
+    WAKE = 0x03
+    TAP = 0x04
+    MIC_DATA = 0x05
+    DEBUG_PRINT = 0x06
+    LONG_TEXT = 0x0A
+    LONG_TEXT_END = 0x0B
+
+    @property
+    def value_as_hex(self):
+        return f'{self.value:02x}'
+
 
 class Bluetooth:
     """
@@ -41,7 +49,7 @@ class Bluetooth:
         self._ongoing_data_response: Optional[bytearray] = None
         self._ongoing_data_response_chunk_count: Optional[int] = None
         self._data_response_event: asyncio.Event = asyncio.Event()
-        self._user_data_response_handlers: Dict[bytes, Callable[[bytes], None]] = {}
+        self._user_data_response_handlers: Dict[FrameDataTypePrefixes, Callable[[bytes], None]] = {}
 
 
     def _disconnect_handler(self, _: Any) -> None:
@@ -57,7 +65,7 @@ class Bluetooth:
         Args:
             data (bytearray): The data received from the device as raw bytes
         """
-        if data[0] == _FRAME_LONG_TEXT_PREFIX:
+        if data[0] == FrameDataTypePrefixes.LONG_TEXT.value:
             # start of long printed data from prntLng() function
             if self._ongoing_print_response is None or self._ongoing_print_response_chunk_count is None:
                 self._ongoing_print_response = bytearray()
@@ -71,7 +79,7 @@ class Bluetooth:
             if len(self._ongoing_print_response) > self._max_receive_buffer:
                 raise Exception(f"Buffered received long printed string is more than {self._max_receive_buffer} bytes")
             
-        elif data[0] == _FRAME_LONG_TEXT_END_PREFIX:
+        elif data[0] == FrameDataTypePrefixes.LONG_TEXT_END.value:
             # end of long printed data from prntLng() function
             total_expected_chunk_count_as_string: str = data[1:].decode()
             if len(total_expected_chunk_count_as_string) > 0:
@@ -88,7 +96,7 @@ class Bluetooth:
                 print("Finished receiving long printed string: "+self._last_print_response)
             self._user_print_response_handler(self._last_print_response)
             
-        elif data[0] == _FRAME_DATA_PREFIX and data[1] == _FRAME_LONG_DATA_PREFIX:
+        elif data[0] == _FRAME_DATA_PREFIX and data[1] == FrameDataTypePrefixes.LONG_DATA.value:
             # start of long raw data from frame.bluetooth.send("\001"..data)
             if self._ongoing_data_response is None or self._ongoing_data_response_chunk_count is None:
                 self._ongoing_data_response = bytearray()
@@ -103,7 +111,7 @@ class Bluetooth:
             if len(self._ongoing_data_response) > self._max_receive_buffer:
                 raise Exception(f"Buffered received long raw data is more than {self._max_receive_buffer} bytes")
             
-        elif data[0] == _FRAME_DATA_PREFIX and data[1] == _FRAME_LONG_DATA_END_PREFIX:
+        elif data[0] == _FRAME_DATA_PREFIX and data[1] == FrameDataTypePrefixes.LONG_DATA_END.value:
             # end of long raw data from frame.bluetooth.send("\002"..chunkCount)
             total_expected_chunk_count_as_string: str = data[2:].decode()
             if len(total_expected_chunk_count_as_string) > 0:
@@ -139,7 +147,7 @@ class Bluetooth:
             self._print_response_event.set()
             self._user_print_response_handler(data.decode())
 
-    def register_data_response_handler(self, prefix: bytes = None, handler: Callable[[bytes], None] = None) -> None:
+    def register_data_response_handler(self, prefix: FrameDataTypePrefixes = None, handler: Callable[[bytes], None] = None) -> None:
         """Registers a data response handler which will be called when data is received from the device that starts with the specified prefix."""
         if handler is None:
             self._user_data_response_handlers.pop(prefix, None)
@@ -152,9 +160,9 @@ class Bluetooth:
     def call_data_response_handlers(self, data: bytes) -> None:
         """Calls all data response handlers which match the received data."""
         for prefix, handler in self._user_data_response_handlers.items():
-            if prefix is None or data.startswith(prefix):
+            if prefix is None or (len(data) > 0 and data[0] == prefix.value):
                 if handler is not None:
-                    handler(data[len(prefix):])
+                    handler(data[1:])
 
     @property
     def print_response_handler(self) -> Callable[[str], None]:

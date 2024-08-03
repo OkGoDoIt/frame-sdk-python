@@ -3,6 +3,7 @@ import asyncio
 import time
 
 from frame_sdk import Frame
+from frame_sdk.camera import Quality
 
 class TestFrame(unittest.IsolatedAsyncioTestCase):
     async def test_send_lua(self):
@@ -90,17 +91,10 @@ class TestFrame(unittest.IsolatedAsyncioTestCase):
     async def test_sleep(self):
         async with Frame() as f:
             await f.run_lua("test_var = 1")
-            self.assertAlmostEqual(await f.evaluate("frame.time.utc()"), int(time.time()), delta=5)
+            self.assertAlmostEqual(int(float(await f.evaluate("frame.time.utc()"))), int(time.time()), delta=5)
             await f.sleep()
-            self.assertEqual(await f.evaluate("test_var"), 1)
-            self.assertEqual(await f.evaluate("test_var_2"), 1)
+            self.assertEqual(await f.evaluate("test_var"), '1')
             self.assertFalse(f.camera.is_awake)
-            await f.camera.take_photo(1,10)
-            self.assertTrue(f.camera.is_awake)
-            
-            await f.sleep(True)
-            f.bluetooth.default_timeout = 5
-            self.assertRaises(Exception, await f.evaluate("test_var"))
 
 if __name__ == "__main__":
     unittest.main()

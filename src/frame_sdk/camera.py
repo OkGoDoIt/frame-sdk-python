@@ -6,19 +6,24 @@ from datetime import datetime
 if TYPE_CHECKING:
     from .frame import Frame
 
+from enum import Enum
+
+class Quality(Enum):
+    LOW = 10
+    MEDIUM = 25
+    HIGH = 50
+    FULL = 100
+
+class AutofocusType(Enum):
+    SPOT = "SPOT"
+    AVERAGE = "AVERAGE"
+    CENTER_WEIGHTED = "CENTER_WEIGHTED"
+
+
 class Camera:
     """Helpers for working with the Frame camera."""
 
     frame: "Frame" = None
-    
-    LOW_QUALITY = 10
-    MEDIUM_QUALITY = 25
-    HIGH_QUALITY = 50
-    FULL_QUALITY = 100
-    
-    AUTOFOCUS_TYPE_SPOT = "SPOT"
-    AUTOFOCUS_TYPE_AVERAGE = "AVERAGE"
-    AUTOFOCUS_TYPE_CENTER_WEIGHTED = "CENTER_WEIGHTED"
 
     _auto_process_photo = True
     
@@ -38,13 +43,13 @@ class Camera:
         self._auto_process_photo = value
     
     
-    async def take_photo(self, autofocus_seconds: Optional[int] = 3, quality: int = MEDIUM_QUALITY, autofocus_type: str = AUTOFOCUS_TYPE_AVERAGE) -> bytes:
+    async def take_photo(self, autofocus_seconds: Optional[int] = 3, quality: Quality = Quality.MEDIUM, autofocus_type: AutofocusType = AutofocusType.AVERAGE) -> bytes:
         """Take a photo with the camera.
 
         Args:
             autofocus_seconds (Optional[int]): If provided, the camera will attempt to focus for the specified number of seconds.  Defaults to 3.  If `None`, the camera will not attempt to focus at all.
-            quality (int): The quality of the photo. Defaults to MEDIUM_QUALITY.  May be one of LOW_QUALITY (10), MEDIUM_QUALITY (25), HIGH_QUALITY (50), or FULL_QUALITY (100).
-            autofocus_type (str): The type of autofocus. Defaults to AUTOFOCUS_TYPE_AVERAGE.  May be one of AUTOFOCUS_TYPE_SPOT, AUTOFOCUS_TYPE_AVERAGE, or AUTOFOCUS_TYPE_CENTER_WEIGHTED.
+            quality (Quality): The quality of the photo. Defaults to Quality.MEDIUM.
+            autofocus_type (AutofocusType): The type of autofocus. Defaults to AutofocusType.AVERAGE.
         
         Returns:
             bytes: The photo as a byte array.
@@ -57,7 +62,12 @@ class Camera:
             await self.frame.run_lua("frame.camera.wake()", checked=True)
             self.is_awake = True
         
-        await self.frame.bluetooth.send_lua(f"cameraCaptureAndSend({quality},{autofocus_seconds or 'nil'},{autofocus_type})")
+        if type(quality) == int:
+            quality = Quality(quality)
+        if type(autofocus_type) == int:
+            autofocus_type = AutofocusType(autofocus_type)
+
+        await self.frame.bluetooth.send_lua(f"cameraCaptureAndSend({quality.value},{autofocus_seconds or 'nil'},'{autofocus_type.value}')")
         image_buffer = await self.frame.bluetooth.wait_for_data()
         
         if image_buffer is None or len(image_buffer) == 0:
@@ -67,26 +77,26 @@ class Camera:
             image_buffer = self.process_photo(image_buffer, autofocus_type)
         return image_buffer
     
-    async def save_photo(self, filename: str, autofocus_seconds: Optional[int] = 3, quality: int = MEDIUM_QUALITY, autofocus_type: str = AUTOFOCUS_TYPE_AVERAGE):
+    async def save_photo(self, filename: str, autofocus_seconds: Optional[int] = 3, quality: Quality = Quality.MEDIUM, autofocus_type: AutofocusType = AutofocusType.AVERAGE):
         """Save a photo to a file.
         
         Args:
             filename (str): The name of the file to save the photo.  The file will always be saved as a jpeg image regardless of the file extension.
             autofocus_seconds (Optional[int]): If provided, the camera will attempt to focus for the specified number of seconds.  Defaults to 3.  If `None`, the camera will not attempt to focus at all.
-            quality (int): The quality of the photo. Defaults to MEDIUM_QUALITY.  May be one of LOW_QUALITY (10), MEDIUM_QUALITY (25), HIGH_QUALITY (50), or FULL_QUALITY (100).
-            autofocus_type (str): The type of autofocus. Defaults to AUTOFOCUS_TYPE_AVERAGE.  May be one of AUTOFOCUS_TYPE_SPOT, AUTOFOCUS_TYPE_AVERAGE, or AUTOFOCUS_TYPE_CENTER_WEIGHTED.
+            quality (Quality): The quality of the photo. Defaults to Quality.MEDIUM.
+            autofocus_type (AutofocusType): The type of autofocus. Defaults to AutofocusType.AVERAGE.
         """
         image_buffer = await self.take_photo(autofocus_seconds, quality, autofocus_type)
 
         with open(filename, "wb") as f:
             f.write(image_buffer)
             
-    def process_photo(self, image_buffer: bytes, autofocus_type: str) -> bytes:
+    def process_photo(self, image_buffer: bytes, autofocus_type: AutofocusType) -> bytes:
         """Process a photo to correct rotation and add metadata.
         
         Args:
             image_buffer (bytes): The photo as a byte array.
-            autofocus_type (str): The type of autofocus that was used to capture the photo.  Should be one of AUTOFOCUS_TYPE_SPOT, AUTOFOCUS_TYPE_AVERAGE, or AUTOFOCUS_TYPE_CENTER_WEIGHTED.
+            autofocus_type (AutofocusType): The type of autofocus that was used to capture the photo.
         
         Returns:
             bytes: The processed photo as a byte array.
@@ -96,11 +106,11 @@ class Camera:
         image.make = "Brilliant Labs"
         image.model = "Frame"
         image.software = "Frame Python SDK"
-        if autofocus_type == self.AUTOFOCUS_TYPE_AVERAGE:
+        if autofocus_type == AutofocusType.AVERAGE:
             image.metering_mode = 1
-        elif autofocus_type == self.AUTOFOCUS_TYPE_CENTER_WEIGHTED:
+        elif autofocus_type == AutofocusType.CENTER_WEIGHTED:
             image.metering_mode = 2
-        elif autofocus_type == self.AUTOFOCUS_TYPE_SPOT:
+        elif autofocus_type == AutofocusType.SPOT:
             image.metering_mode = 3
         image.datetime_original = datetime.now().strftime("%Y:%m:%d %H:%M:%S")
         return image.get_file()
