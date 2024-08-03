@@ -259,6 +259,6 @@ class Frame:
         elif lua_script is None and callback is not None:
             await self.files.write_file("main.lua",("is_awake=true;frame.bluetooth.send('\\x"+FrameDataTypePrefixes.WAKE.value_as_hex+"')").encode(), checked=True)
         elif lua_script is not None and callback is None:
-            await self.files.write_file("main.lua","is_awake=true;"+lua_script.encode(), checked=True)
+            await self.files.write_file("main.lua",("is_awake=true;"+lua_script).encode(), checked=True)
         else:
             await self.files.write_file("main.lua",b"is_awake=true", checked=True)

@@ -133,16 +133,16 @@ class Microphone:
         await self.frame.bluetooth.send_lua(f"microphoneRecordAndSend({self.sample_rate},{self.bit_depth},nil)")
         try:
             await asyncio.wait_for(self._audio_finished_event.wait(), timeout=max_length_in_seconds)
+            await self.frame.bluetooth.send_break_signal()
             # Trim the final _silence_cutoff_length_in_seconds seconds
             trim_length = (self._silence_cutoff_length_in_seconds - 0.5) * self._sample_rate
             if len(self._audio_buffer) > trim_length:
                 self._audio_buffer = self._audio_buffer[:-int(trim_length)]
         except asyncio.TimeoutError:
-            pass
+            await self.frame.bluetooth.send_break_signal()
         if self.frame.bluetooth.print_debugging:
             print(f"\nAudio recording finished with {len(self._audio_buffer)/self._sample_rate:1.1f} seconds of audio")
         self.frame.bluetooth.register_data_response_handler(FrameDataTypePrefixes.MIC_DATA, None)
-        await self.frame.bluetooth.send_break_signal()
         await self.frame.run_lua("frame.microphone.stop()")
         
         return self._audio_buffer
@@ -169,9 +169,9 @@ class Microphone:
             audio_data = np.int16(audio_data)
         
         # based on the max and min values, normalize the data to be within the range of int16.min and int16.max.
-        real_range = np.max(audio_data) - np.min(audio_data)
-        ideal_range = np.iinfo(np.int16).max - np.iinfo(np.int16).min
-        scale_factor = np.min([ideal_range / real_range, np.iinfo(np.int16).max / np.max(audio_data), np.iinfo(np.int16).min / np.min(audio_data)])
+        real_range = int(np.max(audio_data)) - int(np.min(audio_data))
+        ideal_range = int(np.iinfo(np.int16).max) - int(np.iinfo(np.int16).min)
+        scale_factor = np.min([ideal_range / real_range, int(np.iinfo(np.int16).max) / np.max(audio_data), int(np.iinfo(np.int16).min) / np.min(audio_data)])
         audio_data = (audio_data * scale_factor).astype(np.int16)
 
         with wave.open(filename,"wb") as f:
