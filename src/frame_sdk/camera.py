@@ -73,6 +73,13 @@ class Camera:
         if image_buffer is None or len(image_buffer) == 0:
             raise Exception("Failed to get photo")
         
+        while image_buffer[0] == 0x04 and len(image_buffer) < 5:
+            print("Ignoring tap data while waiting for photo")
+            image_buffer = await self.frame.bluetooth.wait_for_data()
+        
+            if image_buffer is None or len(image_buffer) == 0:
+                raise Exception("Failed to get photo")
+        
         if self.auto_process_photo:
             image_buffer = self.process_photo(image_buffer, autofocus_type)
         return image_buffer
