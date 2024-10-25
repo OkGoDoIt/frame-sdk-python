@@ -234,6 +234,10 @@ class Bluetooth:
             self._TX_CHARACTERISTIC_UUID,
         )
 
+        client_name = self._btle_client._backend.__class__.__name__
+        if client_name == "BleakClientBlueZDBus":
+            await self._btle_client._backend._acquire_mtu()
+
     async def disconnect(self) -> None:
         """
         Disconnects from the device.
