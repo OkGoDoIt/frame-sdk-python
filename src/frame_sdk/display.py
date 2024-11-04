@@ -519,6 +519,61 @@ class Display:
 
         w = w // 8 * 8
         await self.frame.run_lua(self._draw_rect_lua(x, y, w, h, color))
+        
+    def _draw_vector_lua(self, x: int, y: int, w: int, h: int, color: PaletteColors):
+        """Helper function to generate Lua code for vector drawing using bitmap."""
+        if isinstance(color, PaletteColors):
+            color = color.value
+        
+        # Ensure width is multiple of 8 since we're using 2-color mode (8 pixels per byte)
+        w = w // 8 * 8
+        
+        # Calculate the number of bytes needed (each byte = 8 pixels in 2-color mode)
+        bytes_needed = (w // 8) * h
+        
+        return f"frame.display.bitmap({x},{y},{w},2,{color},string.rep(\"\\xFF\",{bytes_needed}))"
+
+    async def draw_vector(self, x1: int, y1: int, x2: int, y2: int, color: PaletteColors = PaletteColors.WHITE):
+        """
+        Draws a vector (including diagonals) using bitmap on the display.
+        
+        Args:
+            x1 (int): The x coordinate of the start point.
+            y1 (int): The y coordinate of the start point.
+            x2 (int): The x coordinate of the end point.
+            y2 (int): The y coordinate of the end point.
+            color (PaletteColors): The color of the line (uses palette offset)
+        """
+        if isinstance(color, PaletteColors):
+            color = color.value
+        
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        
+        if dx > dy:
+            # More horizontal movement
+            error = dx / 2
+            while x1 != x2:
+                # Draw 8x1 bitmap
+                await self.frame.run_lua(f"frame.display.bitmap({x1},{y1},8,2,{color},\"\\xFF\")")
+                error -= dy
+                if error < 0:
+                    y1 += sy
+                    error += dx
+                x1 += sx
+        else:
+            # More vertical movement
+            error = dy / 2
+            while y1 != y2:
+                # Draw 8x1 bitmap
+                await self.frame.run_lua(f"frame.display.bitmap({x1},{y1},8,2,{color},\"\\xFF\")")
+                error -= dx
+                if error < 0:
+                    x1 += sx
+                    error += dy
+                y1 += sy
 
     async def draw_rect_filled(self, x: int, y: int, w: int, h: int, border_width: int, border_color: PaletteColors, fill_color: PaletteColors):
         """
