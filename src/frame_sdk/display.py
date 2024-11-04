@@ -524,14 +524,35 @@ class Display:
         """Helper function to generate Lua code for vector drawing using bitmap."""
         if isinstance(color, PaletteColors):
             color = color.value
+
+        # Determine color mode based on color value
+        if color <= 1:
+            # 2-color mode: 8 pixels per byte
+            color_mode = 2
+            pixels_per_byte = 8
+        elif color <= 3:
+            # 4-color mode: 4 pixels per byte
+            color_mode = 4  
+            pixels_per_byte = 4
+        else:
+            # 16-color mode: 2 pixels per byte
+            color_mode = 16
+            pixels_per_byte = 2
+
+        # Adjust width based on color mode
+        w = w // pixels_per_byte * pixels_per_byte
         
-        # Ensure width is multiple of 8 since we're using 2-color mode (8 pixels per byte)
-        w = w // 8 * 8
+        # Calculate bytes needed based on color mode
+        bytes_needed = (w // pixels_per_byte) * h
         
-        # Calculate the number of bytes needed (each byte = 8 pixels in 2-color mode)
-        bytes_needed = (w // 8) * h
-        
-        return f"frame.display.bitmap({x},{y},{w},2,{color},string.rep(\"\\xFF\",{bytes_needed}))"
+        if color_mode == 2:
+            pattern = "\\xFF"
+        elif color_mode == 4:
+            pattern = "\\xFF"
+        else:
+            pattern = "\\xFF"
+            
+        return f"frame.display.bitmap({x},{y},{w},{color_mode},{color},string.rep(\"{pattern}\",{bytes_needed}))"
 
     async def draw_vector(self, x1: int, y1: int, x2: int, y2: int, color: PaletteColors = PaletteColors.WHITE):
         """
@@ -546,18 +567,26 @@ class Display:
         """
         if isinstance(color, PaletteColors):
             color = color.value
-        
+
+        # Determine color mode and minimum bitmap width
+        if color <= 1:
+            min_width = 8  # 2-color mode: 8 pixels per byte
+        elif color <= 3:
+            min_width = 4  # 4-color mode: 4 pixels per byte
+        else:
+            min_width = 2  # 16-color mode: 2 pixels per byte
+
         dx = abs(x2 - x1)
         dy = abs(y2 - y1)
         sx = 1 if x1 < x2 else -1
         sy = 1 if y1 < y2 else -1
-        
+
         if dx > dy:
             # More horizontal movement
             error = dx / 2
             while x1 != x2:
-                # Draw 8x1 bitmap
-                await self.frame.run_lua(f"frame.display.bitmap({x1},{y1},8,2,{color},\"\\xFF\")")
+                # Draw bitmap with appropriate width
+                await self.frame.run_lua(self._draw_vector_lua(x1, y1, min_width, 1, color))
                 error -= dy
                 if error < 0:
                     y1 += sy
@@ -567,8 +596,8 @@ class Display:
             # More vertical movement
             error = dy / 2
             while y1 != y2:
-                # Draw 8x1 bitmap
-                await self.frame.run_lua(f"frame.display.bitmap({x1},{y1},8,2,{color},\"\\xFF\")")
+                # Draw bitmap with appropriate width
+                await self.frame.run_lua(self._draw_vector_lua(x1, y1, min_width, 1, color))
                 error -= dx
                 if error < 0:
                     x1 += sx
