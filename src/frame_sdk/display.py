@@ -1,10 +1,90 @@
 from __future__ import annotations
 import asyncio
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, List, Union
 from enum import Enum
 
 if TYPE_CHECKING:
     from .frame import Frame
+    
+from enum import Enum
+import numpy as np
+import logging
+from PIL import Image
+class PixelArtConverter:
+    PALETTE_RGB = np.array([
+        [0, 0, 0],        # VOID
+        [255, 255, 255],  # WHITE
+        [157, 157, 157],  # GRAY
+        [190, 38, 51],    # RED
+        [224, 111, 139],  # PINK
+        [73, 60, 43],     # DARKBROWN
+        [164, 100, 34],   # BROWN
+        [235, 137, 49],   # ORANGE
+        [247, 226, 107],  # YELLOW
+        [47, 72, 78],     # DARKGREEN
+        [68, 137, 26],    # GREEN
+        [163, 206, 39],   # LIGHTGREEN
+        [27, 38, 50],     # NIGHTBLUE
+        [0, 87, 132],     # SEABLUE
+        [49, 162, 242],   # SKYBLUE
+        [178, 220, 239],  # CLOUDBLUE
+    ])
+
+    @staticmethod
+    def _find_unique_colors(img_array: np.ndarray) -> set:
+        return {tuple(color) for color in np.unique(img_array.reshape(-1, 3), axis=0)}
+
+    @staticmethod
+    def _find_closest_palette_color(color: tuple) -> int:
+        """Find the closest palette color and return its index (PaletteColors value)"""
+        color_array = np.array(color)
+        distances = np.sqrt(np.sum((PixelArtConverter.PALETTE_RGB - color_array) ** 2, axis=1))
+        return int(np.argmin(distances))
+
+    @classmethod
+    def convert_image_to_palette(cls, image_path: str, target_width: int = 64, target_height: int = 64) -> List[List[PaletteColors]]:
+        """
+        Convert an image to Frame's PaletteColors format by quantizing to the closest matching colors.
+        The source image will be automatically quantized from its original color depth
+        to Frame's fixed 16-color palette: VOID (black), WHITE, GRAY, RED, PINK, DARKBROWN,
+        BROWN, ORANGE, YELLOW, DARKGREEN, GREEN, LIGHTGREEN, NIGHTBLUE, SEABLUE, 
+        SKYBLUE, and CLOUDBLUE.
+
+        This method performs the following steps:
+        1. Loads and resizes the image to the target dimensions
+        2. Converts the image to RGB format if needed
+        3. Quantizes the image colors to match Frame's 16-color palette using nearest neighbor color matching
+        4. Returns a 2D array of PaletteColors enum values
+
+        Args:
+            image_path (str): Path to the source image file
+            target_width (int, optional): Desired width of the output image. Defaults to 64.
+            target_height (int, optional): Desired height of the output image. Defaults to 64.
+
+        Returns:
+            List[List[PaletteColors]]: 2D array of PaletteColors enum values representing the quantized image.
+            Each pixel is mapped to the closest matching color in Frame's 16-color palette.
+        """
+        with Image.open(image_path) as img:
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            img = img.resize((target_width, target_height), Image.Resampling.NEAREST)
+            img_array = np.array(img)
+            
+            unique_colors = cls._find_unique_colors(img_array)
+            
+            color_mapping = {
+                color: cls._find_closest_palette_color(color)
+                for color in unique_colors
+            }
+            
+            palette_data = [[
+                PaletteColors(color_mapping[tuple(pixel)])
+                for pixel in row
+            ] for row in img_array]
+            
+            return palette_data
 
 class Alignment(Enum):
     """Enum for text alignment options."""
@@ -519,7 +599,7 @@ class Display:
 
         w = w // 8 * 8
         await self.frame.run_lua(self._draw_rect_lua(x, y, w, h, color))
-
+        
     async def draw_rect_filled(self, x: int, y: int, w: int, h: int, border_width: int, border_color: PaletteColors, fill_color: PaletteColors):
         """
         Draws a filled rectangle with a border on the display.
@@ -548,3 +628,109 @@ class Display:
         # draw the inside rectangle
         lua_to_send += self._draw_rect_lua(x+border_width, y+border_width, w-border_width*2, h-border_width*2, fill_color)
         await self.frame.run_lua(lua_to_send, checked=True)
+    
+    async def draw_image(self, *, x: int, y: int, image_data: List[List[PaletteColors]], 
+                    scale: int = 1) -> List[List[PaletteColors]]:
+        """
+        Draws a quantized image on the Frame display using bitmap operations.
+        It supports different color modes (2-color, 4-color, and 16-color) and uses a single
+        color mode for the entire image based on the maximum color value present.
+
+        Args:
+            x (int): The x coordinate where the image will be drawn (1-based indexing).
+            y (int): The y coordinate where the image will be drawn (1-based indexing).
+            image_data (List[List[PaletteColors]]): 2D array of quantized PaletteColors representing the image pixels.
+            scale (int, optional): Scaling factor for the image. Defaults to 1.
+
+        Returns:
+            List[List[PaletteColors]]: The processed image data that was drawn.
+        """
+        if not image_data or not image_data[0]:
+            logging.warning("Empty image data received")
+            return []
+
+        height = len(image_data)
+        width = len(image_data[0])
+        logging.debug(f"Processing image: {width}x{height} at scale {scale}")
+
+        # Ensure coordinates are within valid range
+        lua_x = max(1, min(640 - width * scale, x + 1))
+        lua_y = max(1, min(400 - height * scale, y + 1))
+
+        try:
+            await self.clear()
+            await asyncio.sleep(0.1)  # Small delay after clear
+
+            # Determine color mode for entire image
+            max_color = max(
+                max(color.value if isinstance(color, PaletteColors) else int(color)
+                    for color in row)
+                for row in image_data
+            )
+
+            if max_color <= 1:
+                color_mode = 2
+                pixels_per_byte = 8
+                bit_mask = 0x01
+                bits_per_pixel = 1
+            elif max_color <= 3:
+                color_mode = 4
+                pixels_per_byte = 4
+                bit_mask = 0x03
+                bits_per_pixel = 2
+            else:
+                color_mode = 16
+                pixels_per_byte = 2
+                bit_mask = 0x0F
+                bits_per_pixel = 4
+
+            bytes_needed = (width + pixels_per_byte - 1) // pixels_per_byte
+            commands = []
+
+            # Process each row
+            for row_idx, row in enumerate(image_data):
+                row_values = [color.value if isinstance(color, PaletteColors) else int(color) for color in row]
+
+                # Group pixels by color
+                color_groups = {}
+                for i, color in enumerate(row_values):
+                    if color not in color_groups:
+                        color_groups[color] = []
+                    color_groups[color].append(i)
+
+                # Generate commands for each color in this row
+                for color, positions in color_groups.items():
+                    pattern = bytearray(bytes_needed)
+                    
+                    # Set bits for this color's pixels
+                    for pos in positions:
+                        byte_idx = pos // pixels_per_byte
+                        bit_pos = (pixels_per_byte - 1 - (pos % pixels_per_byte)) * bits_per_pixel
+                        pattern[byte_idx] |= bit_mask << bit_pos
+
+                    if not any(pattern):  # Skip empty patterns
+                        continue
+
+                    # scaled row commands
+                    for sy in range(scale):
+                        current_y = lua_y + row_idx * scale + sy
+                        if current_y <= 400:  # Check y boundary
+                            pattern_hex = ''.join([f'\\x{b:02x}' for b in pattern])
+                            cmd = f'frame.display.bitmap({lua_x},{current_y},{width},{color_mode},{color},"{pattern_hex}")'
+                            commands.append(cmd)
+
+            # Execute commands in chunks to maintain connection
+            CHUNK_SIZE = 40
+            for i in range(0, len(commands), CHUNK_SIZE):
+                chunk = commands[i:i + CHUNK_SIZE]
+                for cmd in chunk:
+                    await self.frame.run_lua(cmd)
+                await asyncio.sleep(0.001)
+                
+            await self.show()
+            logging.debug("Image drawing completed successfully")
+            return image_data
+
+        except Exception as e:
+            logging.error(f"Error during image drawing: {str(e)}")
+            raise
