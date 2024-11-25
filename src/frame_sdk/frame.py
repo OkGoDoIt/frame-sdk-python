@@ -163,7 +163,7 @@ class Frame:
                     run_on_wake = "frame.bluetooth.send('\\x"+FrameDataTypePrefixes.WAKE.value_as_hex+"');"+run_on_wake
                 run_on_wake = "if not is_awake then;is_awake=true;"+run_on_wake+";end"
                 await self.motion.run_on_tap(run_on_wake)
-            await self.run_lua("frame.display.text(' ',1,1);frame.display.show();frame.camera.sleep()", checked=True)
+            await self.run_lua("frame.display.text(' ',1,1);frame.display.show();", checked=True)
             self.camera.is_awake = False
             
     async def stay_awake(self, value: bool) -> None:
