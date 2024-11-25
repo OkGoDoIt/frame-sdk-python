@@ -122,7 +122,7 @@ async def main():
         # draw the endcap of the battery
         await f.display.draw_rect(640-32,40 + batteryHeight//2-8, 32, 16, PaletteColors.WHITE)
         # draw the battery outline
-        await f.display.draw_rect_filled(640-16-batteryWidth, 40-8, batteryWidth+16, batteryHeight+16, PaletteColors.WHITE, 1, 15)
+        await f.display.draw_rect_filled(640-16-batteryWidth, 40-8, batteryWidth+16, batteryHeight+16, 1, PaletteColors.WHITE, PaletteColors.YELLOW)
         # fill the battery based on level
         await f.display.draw_rect(640-8-batteryWidth, 40, int(batteryWidth * 0.01 * batteryPercent), batteryHeight, color)
         # write the battery level

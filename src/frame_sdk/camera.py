@@ -23,6 +23,7 @@ class AutofocusType(Enum):
 class Camera:
     """Helpers for working with the Frame camera."""
 
+
     frame: "Frame" = None
 
     _auto_process_photo = True
@@ -30,7 +31,6 @@ class Camera:
     def __init__(self, frame: "Frame"):
         """Initialize the Camera with a Frame instance."""
         self.frame = frame
-        self.is_awake = True
         
     @property
     def auto_process_photo(self) -> bool:
@@ -43,7 +43,7 @@ class Camera:
         self._auto_process_photo = value
     
     
-    async def take_photo(self, autofocus_seconds: Optional[int] = 3, quality: Quality = Quality.MEDIUM, autofocus_type: AutofocusType = AutofocusType.AVERAGE) -> bytes:
+    async def take_photo(self, autofocus_seconds: Optional[int] = 3, quality: Quality = Quality.MEDIUM, autofocus_type: AutofocusType = AutofocusType.CENTER_WEIGHTED) -> bytes:
         """Take a photo with the camera.
 
         Args:
@@ -57,10 +57,6 @@ class Camera:
         Raises:
             Exception: If the photo capture fails.
         """
-        
-        if not self.is_awake:
-            await self.frame.run_lua("frame.camera.wake()", checked=True)
-            self.is_awake = True
         
         if type(quality) == int:
             quality = Quality(quality)

@@ -104,7 +104,7 @@ function cameraCaptureAndSend(quality,autoExpTimeDelay,autofocusType)
             state_time = frame.time.utc()
             state = 'WAIT'
         elseif state == 'WAIT' then
-            if frame.time.utc() > state_time + 0.5 then
+            if frame.camera.image_ready() then
                 state = 'SEND'
             end
         elseif state == 'SEND' then
