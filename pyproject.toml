@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "frame-sdk"
-version = "1.2.1"
+version = "1.2.3"
 authors = [{ name = "Roger Pincombe", email = "pip@betechie.com" },{ name = "Brilliant Labs", email = "info@brilliant.xyz" }]
 description = "Python Developer SDK for Brilliant Frame glasses"
 readme = "readme.md"
@@ -17,5 +17,5 @@ classifiers = [
 dependencies = ["bleak", "exif", "numpy", "simpleaudio"]
 
 [project.urls]
-"Homepage" = "https://github.com/OkGoDoIt/frame-sdk-python"
-"Bug Tracker" = "https://github.com/OkGoDoIt/frame-sdk-python/issues"
+"Homepage" = "https://github.com/brilliantlabsAR/frame-sdk-python"
+"Bug Tracker" = "https://github.com/brilliantlabsAR/frame-sdk-python/issues"
