@@ -7,7 +7,7 @@ name = "frame-sdk"
 version = "1.2.3"
 authors = [{ name = "Roger Pincombe", email = "pip@betechie.com" },{ name = "Brilliant Labs", email = "info@brilliant.xyz" }]
 description = "Python Developer SDK for Brilliant Frame glasses"
-readme = "readme.md"
+readme = "README.md"
 requires-python = ">=3.7"
 license = { file = "license.md" }
 classifiers = [
