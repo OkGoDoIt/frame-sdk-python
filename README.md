@@ -44,7 +44,7 @@ async def main():
         # And now we read that file back.
         # Note that we should convert the bytearray to a string via the .decode() method.
         print((await f.files.read_file("greeting.txt")).decode())
-        
+
         # run_lua will automatically handle scripts that are too long for the MTU, so you don't need to worry about it.
         # It will also automatically handle responses that are too long for the MTU automatically.
         await f.run_lua("frame.display.text('Hello world', 50, 100);frame.display.show()")
@@ -62,7 +62,7 @@ async def main():
         await f.camera.save_photo("frame-test-photo.jpg")
         await f.display.show_text("Photo saved!", align=Alignment.MIDDLE_CENTER, color=PaletteColors.GREEN)
         # or with more control
-        await f.camera.save_photo("frame-test-photo-2.jpg", autofocus_seconds=3, quality=Quality.HIGH, autofocus_type=AutofocusType.CENTER_WEIGHTED)
+        await f.camera.save_photo("frame-test-photo-2.jpg", autofocus_seconds=3, quality=Quality.HIGH, autofocus_type=AutofocusType.CENTER_WEIGHTED, resolution=720, pan=-100)
         # or get the raw bytes
         photo_bytes = await f.camera.take_photo(autofocus_seconds=1)
 
@@ -95,7 +95,7 @@ async def main():
         await f.display.show_text(f"Intensity of motion: {intensity_of_motion:01.2f}", align=Alignment.MIDDLE_CENTER)
         print("Tap the Frame to continue...")
         await f.motion.wait_for_tap()
-		
+
         # Show the full palette
         width = 640 // 4
         height = 400 // 4
@@ -137,7 +137,7 @@ async def main():
                             if frame.time.utc() > 10000 then
                                 local time_now = frame.time.date();
                                 frame.display.text(time_now['hour'] .. ':' .. time_now['minute'], 300, 160);
-                                frame.display.text(time_now['month'] .. '/' .. time_now['day'] .. '/' .. time_now['year'], 300, 220) 
+                                frame.display.text(time_now['month'] .. '/' .. time_now['day'] .. '/' .. time_now['year'], 300, 220)
                             end;
                             frame.display.show();
                             frame.sleep(10);
@@ -147,6 +147,10 @@ async def main():
 
         # tell frame to sleep after 10 seconds then clear the screen and go to sleep, without blocking for that
         await f.run_lua("frame.sleep(10);frame.display.text(' ',1,1);frame.display.show();frame.sleep()")
+
+        # clean disconnection so next connect() succeeds
+        await f.bluetooth.disconnect()
+
 
     print("disconnected")
 
