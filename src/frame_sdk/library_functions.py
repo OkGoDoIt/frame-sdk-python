@@ -62,7 +62,7 @@ function printCompleteFile(filename)
         else
             chunk = chunk .. new_chunk .. "\\n"
         end
-        
+
         while string.len(chunk) > mtu - 4 do
             local chunk_to_send = string.sub(chunk, 1, mtu - 4)
             chunkIndex = chunkIndex + 1
@@ -81,7 +81,7 @@ function printCompleteFile(filename)
     end
     f:close()
 end
-function cameraCaptureAndSend(quality,autoExpTimeDelay,autofocusType)
+function cameraCaptureAndSend(quality,autoExpTimeDelay,autofocusType,resolution,pan)
     local last_autoexp_time = 0
     local state = 'EXPOSING'
     local state_time = frame.time.utc()
@@ -100,11 +100,11 @@ function cameraCaptureAndSend(quality,autoExpTimeDelay,autofocusType)
                 state = 'CAPTURE'
             end
         elseif state == 'CAPTURE' then
-            frame.camera.capture { quality_factor = quality }
+            frame.camera.capture { resolution = resolution, quality = quality, pan = pan }
             state_time = frame.time.utc()
             state = 'WAIT'
         elseif state == 'WAIT' then
-            if frame.time.utc() > state_time + 0.5 then
+            if frame.camera.image_ready() then
                 state = 'SEND'
             end
         elseif state == 'SEND' then

@@ -218,6 +218,9 @@ class Bluetooth:
 
         try:
             await self._btle_client.connect()
+            # Workaround to acquire MTU size because Bleak doesn't do it automatically when using BlueZ backend
+            if self._btle_client._backend.__class__.__name__ == "BleakClientBlueZDBus":
+                await self._btle_client._backend._acquire_mtu()
 
             await self._btle_client.start_notify(
                 self._RX_CHARACTERISTIC_UUID,
