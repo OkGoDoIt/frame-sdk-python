@@ -232,7 +232,10 @@ class Bluetooth:
             device: Any = filtered_list[0][0]
 
         except IndexError:
-            raise Exception("No Frame devices found")
+            if address is None:
+                raise Exception("No Frame devices found")
+            else:
+                raise Exception("No Frame devices found matching address "+address)
 
         self._btle_client = BleakClient(
             device,
