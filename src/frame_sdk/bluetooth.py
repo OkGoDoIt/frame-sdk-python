@@ -183,14 +183,23 @@ class Bluetooth:
 
     async def connect(
         self,
+        address: Optional[str] = None,
         print_debugging: bool = False,
         default_timeout: float = 10.0,
-    ) -> None:
+    ) -> str:
         """
         Connects to the nearest Frame device.
-        
+        `address` can optionally be provided either as the 2 digit ID shown on
+        Frame, or the device's full address (note that on MacOS, this is a
+        system generated UUID not the devices real MAC address) in order to only
+        connect to that specific device. The value should be a string, for
+        example `"4F"` or `"78D97B6B-244B-AC86-047F-BBF72ADEB1F5"`
         `print_debugging` will output the raw bytes that are sent and received from Frame if set to True.
         `default_timeout` is the default timeout for waiting for a response from Frame, in seconds.  Defaults to 10 seconds.
+        
+        returns the device address as a string. On MacOS, this is a unique UUID
+        generated for that specific device. It can be used in the `address`
+        parameter to only reconnect to that specific device.
         """
         self._print_debugging = print_debugging
         self._default_timeout = default_timeout
@@ -201,7 +210,21 @@ class Bluetooth:
         filtered_list: List[Tuple[Any, Any]] = []
         for d in devices.values():
             if self._SERVICE_UUID in d[1].service_uuids:
-                filtered_list.append(d)
+                if address is None:
+                    filtered_list.append(d)
+
+                # Filter by last two digits in the device name
+                elif len(address) == 2 and isinstance(address, str):
+                    if d[0].name.lower()[-2:] == address.lower():
+                        filtered_list.append(d)
+
+                # Filter by full device address
+                elif isinstance(address, str):
+                    if d[0].address.lower() == address.lower():
+                        filtered_list.append(d)
+
+                else:
+                    raise Exception("address should be a 2 digit hex string")
 
         # connect to closest device
         filtered_list.sort(key=lambda x: x[1].rssi, reverse=True)
@@ -209,7 +232,10 @@ class Bluetooth:
             device: Any = filtered_list[0][0]
 
         except IndexError:
-            raise Exception("No Frame devices found")
+            if address is None:
+                raise Exception("No Frame devices found")
+            else:
+                raise Exception("No Frame devices found matching address "+address)
 
         self._btle_client = BleakClient(
             device,
@@ -236,6 +262,8 @@ class Bluetooth:
         self._tx_characteristic = service.get_characteristic(
             self._TX_CHARACTERISTIC_UUID,
         )
+        
+        return device.address
 
         client_name = self._btle_client._backend.__class__.__name__
         if client_name == "BleakClientBlueZDBus":

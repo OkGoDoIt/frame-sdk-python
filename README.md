@@ -29,8 +29,11 @@ from frame_sdk.camera import Quality, AutofocusType
 import datetime
 
 async def main():
+    # allow the user to pair with a specific Frame device
+    pairing_code = input("Enter pairing code displayed on Frame (empty for any): ")
+    
     # the with statement handles the connection and disconnection to Frame
-    async with Frame() as f:
+    async with Frame(address=pairing_code) as f:
         # you can access the lower-level bluetooth connection via f.bluetooth, although you shouldn't need to do this often
         print(f"Connected: {f.bluetooth.is_connected()}")
 

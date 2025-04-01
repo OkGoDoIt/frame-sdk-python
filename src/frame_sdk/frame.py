@@ -16,7 +16,7 @@ class Frame:
     
     debug_on_new_connection: bool = False
 
-    def __init__(self):
+    def __init__(self, address: Optional[str] = None):
         """Initialize the Frame device and its components."""
         self.bluetooth = Bluetooth()
         self.files = Files(self)
@@ -26,10 +26,19 @@ class Frame:
         self.motion = Motion(self)
         self._lua_on_wake = None
         self._callback_on_wake = None
+        if address != "":
+            self._address = address.upper()
+        else:
+            self._address = None
         
     async def __aenter__(self) -> 'Frame':
-        """Enter the asynchronous context manager."""
-        await self.ensure_connected()
+        """Enter the asynchronous context manager.
+        `address` can optionally be provided either as the 2 digit ID shown on
+        Frame, or the device's full address (note that on MacOS, this is a
+        system generated UUID not the devices real MAC address) in order to only
+        connect to that specific device. The value should be a string, for
+        example `"4F"` or `"78D97B6B-244B-AC86-047F-BBF72ADEB1F5"`"""
+        await self.ensure_connected(self._address)
         return self
     
     async def __aexit__(self, exc_type: Optional[type], exc_value: Optional[BaseException], traceback: Optional[object]) -> None:
@@ -37,10 +46,15 @@ class Frame:
         if self.bluetooth.is_connected():
             await self.bluetooth.disconnect()
         
-    async def ensure_connected(self) -> None:
-        """Ensure the Frame is connected, establishing a connection if not."""
+    async def ensure_connected(self, address: Optional[str] = None) -> None:
+        """Ensure the Frame is connected, establishing a connection if not.
+        `address` can optionally be provided either as the 2 digit ID shown on
+        Frame, or the device's full address (note that on MacOS, this is a
+        system generated UUID not the devices real MAC address) in order to only
+        connect to that specific device. The value should be a string, for
+        example `"4F"` or `"78D97B6B-244B-AC86-047F-BBF72ADEB1F5"`"""
         if not self.bluetooth.is_connected():
-            await self.bluetooth.connect()
+            await self.bluetooth.connect(address or self._address)
             self.bluetooth.print_debugging = Frame.debug_on_new_connection
             await self.bluetooth.send_break_signal()
             await self.inject_all_library_functions()
